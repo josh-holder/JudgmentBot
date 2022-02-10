@@ -1,4 +1,4 @@
-#Judgement agent class
+#Judgment agent class
 import random
 
 from pkg_resources import invalid_marker
@@ -7,14 +7,14 @@ from Situations import BetSituation, SubroundSituation
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 
-class JudgementAgent(object):
-    def __init__(self):
+class JudgmentAgent(object):
+    def __init__(self,id):
         self.points = 0
         self.hand = []
         self.available_cards = []
         self.subrounds_won = 0
         self.bet = -1
-        self.id = 0
+        self.id = id
 
     def drawCard(self,card):
         self.hand.append(card)
@@ -41,13 +41,13 @@ class JudgementAgent(object):
         Returns choice of card (Card object)
         """
         self.determineCardOptions(srs)
-        return self.chooseCard()
+        return self.chooseCard(srs)
     
     def makeBet(self,bs):
         """
         Based on the given bet situation, chooses and sets a bet, and returns it.
 
-        The base JudgementAgent class defines this function as a purely
+        The base JudgmentAgent class defines this function as a purely
         random choice, but in child objects this will usually take as input
         the gamestate and make a more intelligent choice of bet.
 
@@ -60,11 +60,11 @@ class JudgementAgent(object):
         self.bet = random.choice(possible_bets)
         return self.bet
 
-    def chooseCard(self):
+    def chooseCard(self,srs):
         """
         chooseCard method chooses a valid card to play and returns it.
         
-        The base JudgementAgent class defines this function as a purely
+        The base JudgmentAgent class defines this function as a purely
         random choice, but in child objects this will usually take as input
         the gamestate and make a more intelligent choice.
         """
@@ -124,5 +124,5 @@ class JudgementAgent(object):
 
 
 if __name__ == "__main__":
-    agent = JudgementAgent()
+    agent = JudgmentAgent()
 

@@ -7,7 +7,7 @@ import random
 import time
 
 def _build_parser():
-	parser = argparse.ArgumentParser(description='Generate betting data to train neural network Judgement better.')
+	parser = argparse.ArgumentParser(description='Generate betting data to train neural network Judgment better.')
 
 	parser.add_argument(
 		'-b','--bet_data_name',
@@ -26,7 +26,7 @@ class betSituation(object):
         self.cards = []
         for i in range(self.round):
             self.cards.append(self.deck.give_random_card())
-        self.sortCardsJudgement()
+        self.sortCardsJudgment()
         self.bet_pos = random.randint(0,3)
         self.other_bets = self.genOtherBets()
         self.trump = (self.round-1) % 5
@@ -62,7 +62,7 @@ class betSituation(object):
         
         return other_bets
     
-    def sortCardsJudgement(self):
+    def sortCardsJudgment(self):
         for card in self.cards:
             if card.value == 1: card.value = 14#change aces to high
         self.cards.sort(key=lambda x: x.value, reverse=True)
