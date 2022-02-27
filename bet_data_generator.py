@@ -1,4 +1,3 @@
-#Implementation of judgement
 from deck_of_cards import deck_of_cards
 import os
 import pickle
@@ -13,10 +12,22 @@ def _build_parser():
 		'-b','--bet_data_name',
 		help="Set name of output file/file to load for betting data. If existing file, will append new bet data",
 		type=str,
-		default="bet_data.pkl",
+		default="bet_data/bet_data.pkl",
 	)
 
 	return parser
+
+def loadBetData(folder_path="bet_data"):
+    combined_data = []
+    for filename in os.listdir(folder_path):
+        f = os.path.join(folder_path, filename)
+        # checking if it is a file
+        if os.path.isfile(f) and filename != ".DS_Store":
+            with open(f,'rb') as f:
+                dat = pickle.load(f)
+                combined_data.extend(dat)
+    
+    return combined_data
 
 
 class betSituation(object):
