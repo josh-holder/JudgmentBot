@@ -26,7 +26,7 @@ def loadBetData(folder_path="bet_data"):
             with open(f,'rb') as f:
                 dat = pickle.load(f)
                 combined_data.extend(dat)
-    
+
     return combined_data
 
 

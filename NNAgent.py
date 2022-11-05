@@ -12,7 +12,7 @@ class NNAgent(SimpleAgent):
         self.bet_model = keras.models.load_model(model_path)
 
     def convertBetSituationToNNInput(self,bs):
-        bs_as_nn_input = -0.5*np.ones((1,56))
+        bs_as_nn_input = -0.5*np.ones((1,56)) #want mean to be approx 0
 
         #add cards
         for card in self.hand:

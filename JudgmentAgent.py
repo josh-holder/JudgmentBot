@@ -20,6 +20,9 @@ class JudgmentAgent(object):
         self.hand.append(card)
 
     def determineCardOptions(self,srs):
+        """
+        Based on cards in play, edit available_cards object of Agent.
+        """
         if len(srs.card_stack) > 0:
             forced_suit = srs.card_stack[0].suit
             cards_of_same_suit = [card for card in self.hand if card.suit == forced_suit]

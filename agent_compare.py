@@ -3,6 +3,7 @@ from JudgmentGame import JudgmentGame
 from NNAgent import NNAgent
 from SimpleAgent import SimpleAgent
 from JudgmentAgent import JudgmentAgent
+from RandomBetSimplePlayAgent import RandomBetSimplePlayAgent
 import random
 from copy import deepcopy
 
@@ -26,4 +27,4 @@ def compareAgents(agents_to_compare,games_num=1000):
     return avg_scores
 
 if __name__ == "__main__":
-    compareAgents([NNAgent(0),NNAgent(1),SimpleAgent(2),SimpleAgent(3)],games_num=1000)
+    compareAgents([NNAgent(0),SimpleAgent(1),RandomBetSimplePlayAgent(2),JudgmentAgent(3)],games_num=1000)

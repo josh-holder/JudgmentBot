@@ -1,17 +1,20 @@
+from xml.dom.minidom import Attr
 from pkg_resources import evaluate_marker
 from JudgmentAgent import JudgmentAgent
 from deck_of_cards import deck_of_cards
 from Situations import BetSituation, SubroundSituation
 from SimpleAgent import SimpleAgent
+from HumanAgent import HumanAgent
+import time
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 DEFAULT_HAND_SIZES = [1,2,3,4,5,6,7,8,9,10,11,12,13,12,11,10,9,8,7,6,5,4,3,2,1]
 DEFAULT_AGENTS = [JudgmentAgent(0),JudgmentAgent(1),JudgmentAgent(2),JudgmentAgent(3)]
 
 class JudgmentGame(object):
-    def __init__(self,agents=DEFAULT_AGENTS,hand_sizes=DEFAULT_HAND_SIZES,game_verbose=0):
+    def __init__(self,agents=DEFAULT_AGENTS,hand_sizes=DEFAULT_HAND_SIZES,game_verbose=0,print_final_tables=0):
         self.hand_sizes = hand_sizes
-        
+        self.print_final_tables = print_final_tables
         self.agents = agents
         self.game_verbose = game_verbose
 
@@ -69,6 +72,16 @@ class JudgmentGame(object):
                     for card in srs.card_stack:
                         print(card.name,end=", ")
                     print("\nWinning card is: {}".format(srs.card_stack[winning_agent].name))
+
+                if self.print_final_tables:
+                    for agent in self.agents:
+                        try:
+                            agent.displayTable(srs)
+                            print(f"Player {self.agents[winning_agent].id} won trick with {srs.card_stack[winning_agent].name}")
+                            input("Press any key to continue")
+                        #If agent doesn't have a way to print the table (i.e. is not the Human player)
+                        except AttributeError:
+                            pass
 
             if self.game_verbose:
                 for agent in self.agents:

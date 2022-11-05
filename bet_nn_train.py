@@ -28,7 +28,7 @@ def prepareData():
             prepared_data_in[i,data_index] = 0.5
 
         prepared_data_in[i,52] = bs.bet_pos
-        prepared_data_in[i,53] = bs.other_bets.count(0)
+        prepared_data_in[i,53] = bs.other_bets.count(0) #number of zero bets
         prepared_data_in[i,54] = sum(bs.other_bets)/bs.round
         prepared_data_in[i,55] = bs.trump
     
@@ -68,10 +68,10 @@ if __name__ == "__main__":
     train_in = prepared_data_in[:split_idx,:]; test_in = prepared_data_in[split_idx:,:];
     train_out = prepared_data_out[:split_idx,:].flatten(); test_out = prepared_data_out[split_idx:,:].flatten();
 
-    # model.fit(train_in,train_out,epochs=50,batch_size=50)
-    # model.evaluate(test_in, test_out, verbose=2)
+    model.fit(train_in,train_out,epochs=50,batch_size=50)
+    model.evaluate(test_in, test_out, verbose=2)
 
-    # model.save(model_path)
-    print(model.predict(test_in))
+    model.save(model_path)
+    # print(model.predict(test_in))
 
 
