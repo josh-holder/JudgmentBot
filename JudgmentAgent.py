@@ -2,7 +2,7 @@
 import random
 
 from pkg_resources import invalid_marker
-from deck_of_cards import deck_of_cards
+from deck_of_cards import DeckOfCards
 from Situations import BetSituation, SubroundSituation
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
@@ -15,6 +15,8 @@ class JudgmentAgent(object):
         self.subrounds_won = 0
         self.bet = -1
         self.id = id
+        #structure which tracks whether other players know that this agent is out of a suit
+        self.visibly_out_of_suit = [0,0,0,0] 
 
     def drawCard(self,card):
         self.hand.append(card)
@@ -26,6 +28,7 @@ class JudgmentAgent(object):
         if len(srs.card_stack) > 0:
             forced_suit = srs.card_stack[0].suit
             cards_of_same_suit = [card for card in self.hand if card.suit == forced_suit]
+            if len(cards_of_same_suit) == 0: self.visibly_out_of_suit[forced_suit] = 1
         else:
             cards_of_same_suit = []
 
@@ -79,25 +82,37 @@ class JudgmentAgent(object):
     def updateScore(self,hand_size):
         #Betting zero
         if self.bet == 0:
-            if self.subrounds_won == 0: self.points += 10*hand_size
-            else: self.points += -10*self.subrounds_won
+            if self.subrounds_won == 0:
+                point_change = 10*hand_size
+                self.points += point_change
+                return point_change
+            else: 
+                point_change = -10*self.subrounds_won
+                self.points += point_change
+                return point_change
         
         else:
             #Didn't reach target (overbet)
             if self.bet > self.subrounds_won:
-                self.points += -10*(self.bet-self.subrounds_won)
+                point_change = -10*(self.bet-self.subrounds_won)
+                self.points += point_change
+                return point_change
             #Got target exactly
             elif self.bet == self.subrounds_won:
-                self.points += 10*self.bet
+                point_change = 10*self.bet
+                self.points += point_change
+                return point_change
             #Went over target (underbet) (doesn't account for more players)
             else:
                 rollover_num = 5
                 old_ones_place = self.points % 10
-                self.points += 10*self.bet + (self.subrounds_won-self.bet)
+                point_change = 10*self.bet + (self.subrounds_won-self.bet)
                 new_ones_place = self.points % 10
                 old_ones_place_5s = old_ones_place // rollover_num
                 new_ones_place_5s = (old_ones_place+self.subrounds_won-self.bet) // rollover_num
-                self.points += -rollover_num*10*(new_ones_place_5s-old_ones_place_5s)
+                point_change += -rollover_num*10*(new_ones_place_5s-old_ones_place_5s)
+                self.points += point_change
+                return point_change
 
     def reset(self):
         """ Resets agent to prepare for new round
@@ -106,6 +121,7 @@ class JudgmentAgent(object):
         self.available_cards = []
         self.subrounds_won = 0
         self.bet = -1
+        self.visibly_out_of_suit = [0,0,0,0]
 
     def printHand(self):
         """

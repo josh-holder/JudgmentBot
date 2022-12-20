@@ -1,7 +1,7 @@
 from xml.dom.minidom import Attr
 from pkg_resources import evaluate_marker
 from JudgmentAgent import JudgmentAgent
-from deck_of_cards import deck_of_cards
+from deck_of_cards import DeckOfCards
 from Situations import BetSituation, SubroundSituation
 from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent
@@ -37,7 +37,7 @@ class JudgmentGame(object):
 
             if self.game_verbose: print("~~ Round {}, Hand Size {}, Trump {} ~~".format(round,hand_size,SUIT_ORDER[trump]))
 
-            deck = deck_of_cards.DeckOfCards()
+            deck = DeckOfCards()
 
             #deal cards
             for card_num in range(hand_size):
@@ -59,27 +59,27 @@ class JudgmentGame(object):
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
-                srs = SubroundSituation([],trump,turn_order)
+                srs = SubroundSituation(hand_size,[],trump,turn_order)
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
                     srs.card_stack.append(agent.playCard(srs))
 
-                winning_agent = self.evaluateSubround(srs)
-                turn_order[winning_agent].subrounds_won += 1
-                starting_agent = winning_agent
+                winning_agent_ind = self.evaluateSubround(srs)
+                turn_order[winning_agent_ind].subrounds_won += 1
+                starting_agent = winning_agent_ind
 
                 if self.game_verbose: 
                     print("Subround {}, order is now {} {} {} {} - cards played were:".format(subround,turn_order[0].id,turn_order[1].id,turn_order[2].id,turn_order[3].id))
                     for card in srs.card_stack:
                         print(card.name,end=", ")
-                    print("\nWinning card is: {}".format(srs.card_stack[winning_agent].name))
+                    print("\nWinning card is: {}".format(srs.card_stack[winning_agent_ind].name))
 
                 if self.print_final_tables:
                     for agent in self.agents:
                         try:
                             agent.displayTable(srs)
-                            print(f"Player {self.agents[winning_agent].id} won trick with {srs.card_stack[winning_agent].name}")
+                            print(f"Player {self.agents[winning_agent_ind].id} won trick with {srs.card_stack[winning_agent_ind].name}")
                             input("Press any key to continue")
                         #If agent doesn't have a way to print the table (i.e. is not the Human player)
                         except AttributeError:
@@ -109,17 +109,13 @@ class JudgmentGame(object):
         Given a stack of cards, evaluates which card won,
         and returns that index.
         """
-        secondary_trump = srs.card_stack[0].suit
-
-        #After making aces high,
-        #Shift the values of any trump card up by 14 and
+        #Shift the values of any trump card up by 13 and
         #keep the values of secondary trump cards the same.
         #Set values of other suits to zero, and simply pick the card
         #with the highest value
         card_values = []
         for card in srs.card_stack:
-            if card.value == 1: card.value = 14 #make aces high
-            card_values.append(calcSubroundAdjustedValue(card,srs.trump,secondary_trump))
+            card_values.append(calcSubroundAdjustedValue(card,srs))
 
         #return index in card_values where the card of maximum value was found
         return card_values.index(max(card_values))

@@ -44,19 +44,16 @@ class DQNAgent(SimpleAgent):
         Outputs:
         - List of probabilities of winning the subround, with index i correpsonding to the probability
             of winning the subround with card i in the agent's hand.
-        """
-        trump_suit = srs.trump
-        secondary_suit = srs.card_stack[0].suit if (len(srs.card_stack) > 0) else None
-        
+        """   
         #Calculate maximum adjusted value on the stack thus far
         max_adjusted_val = 0
         for card in srs.card_stack:
-            adj_val = calcSubroundAdjustedValue(card,trump_suit,secondary_suit)
+            adj_val = calcSubroundAdjustedValue(card,srs)
             if adj_val > max_adjusted_val: max_adjusted_val = adj_val
 
         win_chances = []
         for card in self.hand:
-            adjusted_card_val = calcSubroundAdjustedValue(card,trump_suit,secondary_suit)
+            adjusted_card_val = calcSubroundAdjustedValue(card,srs)
 
             #If the card already loses to an existing card on the stack, win_chance is zero
             if adjusted_card_val < max_adjusted_val: win_chances.append(0)

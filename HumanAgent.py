@@ -1,6 +1,6 @@
 from SimpleAgent import SimpleAgent
 from JudgmentAgent import JudgmentAgent
-from NNAgent import NNAgent
+from HumanBetAgent import HumanBetAgent
 import random
 play_verbose = 0
 

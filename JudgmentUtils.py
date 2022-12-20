@@ -1,6 +1,6 @@
-def calcSubroundAdjustedValue(card,trump,secondary_suit):
+def calcSubroundAdjustedValue(card,srs):
     """
-    Given a card, trump, and secondary suit, returns a simplified value for the card.
+    Given a card and subround situation, returns a simplified value for the card.
 
     Simplified values are defined as follows:
 
@@ -12,11 +12,14 @@ def calcSubroundAdjustedValue(card,trump,secondary_suit):
 
     Finally, cards from all other suits recieve a value of 0, indicating that they cannot win the current subround.
     """
-    if card.suit == trump:
-        return (card.value-1)+13
+    trump_suit = srs.trump
+    secondary_suit = srs.card_stack[0].suit if (len(srs.card_stack) > 0) else None
+
+    if card.suit == trump_suit:
+        return (card.value)+13
     elif card.suit == secondary_suit:
-        return (card.value-1)
+        return (card.value)
     elif secondary_suit == None: #if there is no sceondary trump yet, this card is now secondary trump
-        return (card.value-1)
+        return (card.value)
     else:
         return 0

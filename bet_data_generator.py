@@ -1,4 +1,4 @@
-from deck_of_cards import deck_of_cards
+from deck_of_cards import DeckOfCards
 import os
 import pickle
 import argparse
