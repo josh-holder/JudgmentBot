@@ -6,9 +6,21 @@ import tensorflow as tf
 from tf.keras import layers
 from tensorflow.keras.layers import concatenate, Masking
 from tensorflow.keras import Input, Model
-
+import os
 
 class DQNAgent(SimpleAgent):
+    def __init__(self,id,bet_model_name="bet_model",eval_model_name="eval_model",action_model_name="action_model"):
+        super().__init__(id)
+
+        bet_model_path = os.path.join(os.getcwd(),bet_model_name)
+        self.bet_model = keras.models.load_model(bet_model_path)
+
+        eval_model_path = os.path.join(os.getcwd(),eval_model_name)
+        self.eval_model = keras.models.load_model(eval_model_path)
+
+        action_model_path = os.path.join(os.getcwd(),action_model_name)
+        self.action_model = keras.models.load_model(action_model_path)
+
     def evaluateSubroundWinChance(self,srs):
         """
         Given a subround, evaluates the chance that playing a given card will win the round.
