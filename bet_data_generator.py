@@ -12,12 +12,12 @@ def _build_parser():
 		'-b','--bet_data_name',
 		help="Set name of output file/file to load for betting data. If existing file, will append new bet data",
 		type=str,
-		default="bet_data/bet_data.pkl",
+		default="human_bet_data/bet_data.pkl",
 	)
 
 	return parser
 
-def loadBetData(folder_path="bet_data"):
+def loadBetData(folder_path="human_bet_data"):
     combined_data = []
     for filename in os.listdir(folder_path):
         f = os.path.join(folder_path, filename)

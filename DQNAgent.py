@@ -123,6 +123,9 @@ class DQNAgent(SimpleAgent):
         card = super().playCard(srs)
         return card
 
+    def convertSubroundSituationToNNInput(self,srs):
+        pass
+
 if __name__ == "__main__":
     time_series_input = Input(shape=(3,7))
     time_series_mask = Masking()(time_series_input)

@@ -9,13 +9,10 @@ import numpy as np
 import time
 
 class HumanBetAgent(SimpleAgent):
-    def __init__(self,id,bet_model_name="bet_model",eval_model_name="eval_model"):
+    def __init__(self,id,bet_model_name="human_bet_model"):
         super().__init__(id)
         bet_model_path = os.path.join(os.getcwd(),bet_model_name)
         self.bet_model = keras.models.load_model(bet_model_path)
-
-        eval_model_path= os.path.join(os.getcwd(),eval_model_name)
-        self.eval_model = keras.models.load_model(eval_model_path)
 
     def convertBetSituationToNNInput(self,bs):
         bs_as_nn_input = -0.5*np.ones((1,56)) #want mean to be approx 0
@@ -31,9 +28,6 @@ class HumanBetAgent(SimpleAgent):
         bs_as_nn_input[0,55] = bs.trump
 
         return bs_as_nn_input
-
-    def convertSubroundSituationToNNInput(self,srs):
-        pass
 
     def makeBet(self, bs):
         """
