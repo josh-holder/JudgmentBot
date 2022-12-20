@@ -5,6 +5,8 @@ from deck_of_cards import deck_of_cards
 from Situations import BetSituation, SubroundSituation
 from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent
+from HumanBetAgent import HumanBetAgent
+from JudgmentUtils import calcSubroundAdjustedValue
 import time
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
@@ -117,12 +119,7 @@ class JudgmentGame(object):
         card_values = []
         for card in srs.card_stack:
             if card.value == 1: card.value = 14 #make aces high
-            if card.suit == secondary_trump:
-                card_values.append(card.value)
-            elif card.suit == srs.trump:
-                card_values.append(card.value+14)
-            else:
-                card_values.append(0)
+            card_values.append(calcSubroundAdjustedValue(card,srs.trump,secondary_trump))
 
         #return index in card_values where the card of maximum value was found
         return card_values.index(max(card_values))
@@ -138,18 +135,14 @@ class JudgmentGame(object):
 
 
 if __name__ == "__main__":
-    scores = [0,0,0,0]
-    for game_num in range(25):
-        jg = JudgmentGame(game_verbose=1,agents=[SimpleAgent(0),JudgmentAgent(1),JudgmentAgent(2),JudgmentAgent(3)])
-        agents = jg.playGame()
-        for i,agent in enumerate(agents):
-            scores[i] += agent.points
+    # scores = [0,0,0,0]
+    # for game_num in range(25):
+    #     jg = JudgmentGame(game_verbose=1,agents=[SimpleAgent(0),JudgmentAgent(1),JudgmentAgent(2),JudgmentAgent(3)])
+    #     agents = jg.playGame()
+    #     for i,agent in enumerate(agents):
+    #         scores[i] += agent.points
 
-    print("Final Scores: {}".format([score for score in scores]))
+    # print("Final Scores: {}".format([score for score in scores]))
 
-    # jg = JudgmentGame(game_verbose=1,agents=[SimpleAgent(),JudgmentAgent(),JudgmentAgent(),JudgmentAgent()])
-    # jg.agents[0].id = 0
-    # jg.agents[1].id = 1
-    # jg.agents[2].id = 2
-    # jg.agents[3].id = 3
-    # agents = jg.playGame()
+    jg = JudgmentGame(game_verbose=1,agents=[HumanBetAgent(0),SimpleAgent(1),SimpleAgent(2),SimpleAgent(3)])
+    jg.playGame()

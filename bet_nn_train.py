@@ -45,7 +45,7 @@ if __name__ == "__main__":
     prepared_data_in = prepared_data[0]
     prepared_data_out = prepared_data[1]
 
-    model_path = os.path.join(os.getcwd(),'bet_agent')
+    model_path = os.path.join(os.getcwd(),'bet_model')
     if os.path.exists(model_path):
         print("Loading existing NN.")
         model = keras.models.load_model(model_path)

@@ -1,15 +1,21 @@
 from SimpleAgent import SimpleAgent
+from JudgmentAgent import JudgmentAgent
+from JudgmentUtils import calcSubroundAdjustedValue
 import os
 from tensorflow import keras
+import tensorflow as tf
 from bet_nn_train import prepareData
 import numpy as np
 import time
 
-class NNAgent(SimpleAgent):
-    def __init__(self,id,model_name="bet_agent"):
+class HumanBetAgent(SimpleAgent):
+    def __init__(self,id,bet_model_name="bet_model",eval_model_name="eval_model"):
         super().__init__(id)
-        model_path = os.path.join(os.getcwd(),model_name)
-        self.bet_model = keras.models.load_model(model_path)
+        bet_model_path = os.path.join(os.getcwd(),bet_model_name)
+        self.bet_model = keras.models.load_model(bet_model_path)
+
+        eval_model_path= os.path.join(os.getcwd(),eval_model_name)
+        self.eval_model = keras.models.load_model(eval_model_path)
 
     def convertBetSituationToNNInput(self,bs):
         bs_as_nn_input = -0.5*np.ones((1,56)) #want mean to be approx 0
@@ -25,6 +31,9 @@ class NNAgent(SimpleAgent):
         bs_as_nn_input[0,55] = bs.trump
 
         return bs_as_nn_input
+
+    def convertSubroundSituationToNNInput(self,srs):
+        pass
 
     def makeBet(self, bs):
         """
@@ -48,7 +57,7 @@ class NNAgent(SimpleAgent):
 
         #find closes bet in possible bets to desired
         
-        min_dist_from_poss = 1000
+        min_dist_from_poss = np.inf
         for possible_bet in possible_bets:
             dist = abs(desired_bet-possible_bet)
             if dist < min_dist_from_poss:
@@ -56,3 +65,7 @@ class NNAgent(SimpleAgent):
                 self.bet = possible_bet
 
         return self.bet
+
+
+if __name__ == "__main__":
+    pass

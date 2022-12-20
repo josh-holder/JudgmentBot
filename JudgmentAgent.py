@@ -10,7 +10,7 @@ SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 class JudgmentAgent(object):
     def __init__(self,id):
         self.points = 0
-        self.hand = []
+        self.hand = [] #List of Card objects
         self.available_cards = []
         self.subrounds_won = 0
         self.bet = -1
