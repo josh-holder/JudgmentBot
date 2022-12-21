@@ -4,6 +4,7 @@ import random
 from pkg_resources import invalid_marker
 from deck_of_cards import DeckOfCards
 from Situations import BetSituation, SubroundSituation
+from JudgmentUtils import calcSubroundAdjustedValue
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 
@@ -35,7 +36,7 @@ class JudgmentAgent(object):
         if len(cards_of_same_suit) > 0:
             self.available_cards = cards_of_same_suit
         else:
-            self.available_cards = self.hand
+            self.available_cards = self.hand   
 
     def playCard(self,srs):
         """
@@ -78,6 +79,23 @@ class JudgmentAgent(object):
         self.hand.remove(card_to_play)
         #returns chosen card and removes it from hand
         return card_to_play
+
+    def evalSubroundWinChance(self,card,srs):
+        """
+        Given card (usually the card that the agent chose to play) and a SubroundSituation, 
+        determines the chance that a card has to win the game.
+
+        In basic implementation, returns a 1 or a 0 if it is deterministic, and None if it
+        depends on the behavior of other agents. In other agents, win chance in these cases may be
+        determined by a more complex algorithm, such as a neural network.
+        """
+        adjusted_card_val = calcSubroundAdjustedValue(card,srs)
+        #If the card already loses to an existing card on the stack, win_chance is zero
+        if adjusted_card_val < srs.highest_adjusted_val: return 0
+        #Otherwise, if all other players have already played a card and this card is higher, win chance is 1
+        elif len(srs.card_stack) == 3 and adjusted_card_val > srs.highest_adjusted_val: return 1
+        #Otherwise, we can't determine the win chance with this basic method:
+        else: return None
 
     def updateScore(self,hand_size):
         #Betting zero
