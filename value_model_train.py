@@ -14,6 +14,10 @@ import numpy as np
 from HumanBetAgent import HumanBetAgent
 from collections import defaultdict as dd
 from JudgmentUtils import calcSubroundAdjustedValue
+import os
+import pickle
+from math import floor
+import time
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 DEFAULT_HAND_SIZES = [1,2,3,4,5,6,7,8,9,10,11,12,13,12,11,10,9,8,7,6,5,4,3,2,1]
@@ -32,15 +36,11 @@ def convertSubroundSituationToActionState(srs, agent, remaining_agents, publicly
     agent bet, agent percentage of subrounds won, number of cards in hand]]
     """
     #~~~~~~Determine next_agents series to feed into LSTM~~~~~~~~~~
-    next_agents_series = []
-    for next_agent in remaining_agents:
+    next_agents_series = -1*np.ones((3,7))
+    for i, next_agent in enumerate(remaining_agents):
         relative_points = (next_agent.points - agent.points)/POINT_NORMALIZATION
         next_agent_data = [relative_points,next_agent.bet/13,next_agent.subrounds_won/13] + next_agent.visibly_out_of_suit
-        next_agents_series.append(next_agent_data)
-    
-    #pad next_agents_series with empty data which will be filtered out with a Mask layer later
-    while len(next_agents_series) < 3:
-        next_agents_series.append([0,0,0,0,0,0,0])
+        next_agents_series[i,:] = np.array(next_agent_data)
 
     winning_agent_state = [-1.0,-1.0,-1.0] #by default, there is no winning player so we have all -1s to be masked
     if len(srs.card_stack) > 0:
@@ -99,15 +99,11 @@ def convertSubroundSituationToEvalState(srs, agent, remaining_agents, publicly_p
     elif len(srs.card_stack) == 3 and adjusted_card_val > srs.highest_adjusted_val: return None #always wins, don't need NN eval
     else: #state which NN needs to predict
         #Determine next_agents series to feed into LSTM
-        next_agents_series = []
-        for next_agent in remaining_agents:
+        next_agents_series = -1*np.ones((3,7))
+        for i, next_agent in enumerate(remaining_agents):
             relative_points = (next_agent.points - agent.points)/POINT_NORMALIZATION
             next_agent_data = [relative_points,next_agent.bet/13,next_agent.subrounds_won/13] + next_agent.visibly_out_of_suit
-            next_agents_series.append(next_agent_data)
-
-        #pad next_agents_series with empty data which will be filtered out with a Mask layer later
-        while len(next_agents_series) < 3:
-            next_agents_series.append([0,0,0,0,0,0,0])
+            next_agents_series[i,:] = np.array(next_agent_data)
 
         #Determine parameter state
         parameter_state = np.zeros(60)
@@ -272,11 +268,6 @@ class JudgementGameWDataGen(JudgmentGame):
 
             self.agents.append(self.agents.pop(0)) #shift order of agents for next round
 
-        print(action_train_data)
-        self.agents = sorted(self.agents, key=lambda x: x.id)
-        print(len(action_train_data))
-        print(len(eval_train_data))
-        print(len(bet_train_data))
         return bet_train_data, eval_train_data, action_train_data
         
 def initBetModel():
@@ -317,7 +308,7 @@ def initEvalModel(layer_sizes=[48,24,12]):
     """
     #Input for LSTM of players going after you in the order
     next_players_input = Input(shape=(3,7))
-    next_players_mask = Masking()(next_players_input)
+    next_players_mask = Masking(mask_value=-1.0)(next_players_input)
     next_players_LSTM = layers.LSTM(20, activation="relu", unroll=True)(next_players_mask)
 
     #Input for all other parameters, including cards still possible to play, trump, player info, etc.
@@ -373,7 +364,7 @@ def initActionModel(layer_sizes=[64, 64, 48,24,12]):
     """
     #Input for LSTM of players going after you in the order
     next_players_input = Input(shape=(3,7))
-    next_players_mask = Masking()(next_players_input)
+    next_players_mask = Masking(mask_value=-1.0)(next_players_input)
     next_players_LSTM = layers.LSTM(20, activation="relu", unroll=True)(next_players_mask)
 
     #Input for currently winning player (need masking here if there is no winning player)
@@ -409,8 +400,31 @@ def initActionModel(layer_sizes=[64, 64, 48,24,12]):
 def generateTrainingData():
     jg = JudgmentGame()
 
-if __name__ == "__main__":
-    jg = JudgementGameWDataGen(game_verbose=True,agents=[HumanBetAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
+def trainEvalFunctionOnExpertAlgorithm():
+    start = time.time()
+    eval_train_data = []
+    eval_data_path = os.path.join(os.getcwd(),"eval_expert_train_data/eval_expert_train_data.pkl")
 
-    jg.playGameForData()
+    train_data_goal = 10000
+    last_modulus = np.inf
+    while len(eval_train_data) < train_data_goal:
+        jg = JudgementGameWDataGen(agents=[HumanBetAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
+
+        bet_train_data, curr_eval_train_data, action_train_data = jg.playGameForData()
+        eval_train_data += curr_eval_train_data
+        print(f"Eval training data: {len(eval_train_data)}/{train_data_goal}")
+
+        if len(eval_train_data) % floor(train_data_goal/5) < last_modulus:
+            with open(eval_data_path, 'wb') as f:
+                print(f"Saving {len(eval_train_data)} pieces of training data in {eval_data_path}...")
+                pickle.dump(eval_train_data,f)
+            last_modulus = len(eval_train_data) % floor(train_data_goal/5)
+    
+    with open(eval_data_path, 'wb') as f:
+        print(f"Saving {len(eval_train_data)} pieces of training data in {eval_data_path}...")
+        pickle.dump(eval_train_data,f)
+    print(f"Done generating training data in {time.time()-start} seconds")
+
+if __name__ == "__main__":
+    trainEvalFunctionOnExpertAlgorithm()
 
