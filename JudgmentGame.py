@@ -59,11 +59,13 @@ class JudgmentGame(object):
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
-                srs = SubroundSituation(hand_size,[],trump,turn_order)
+                srs = SubroundSituation(hand_size,[],trump,0,turn_order)
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
-                    srs.card_stack.append(agent.playCard(srs))
+                    played_card = agent.playCard(srs)
+                    srs.highest_adjusted_val = max(srs.highest_adjusted_val, calcSubroundAdjustedValue(played_card, srs))
+                    srs.card_stack.append(played_card)
 
                 winning_agent_ind = self.evaluateSubround(srs)
                 turn_order[winning_agent_ind].subrounds_won += 1

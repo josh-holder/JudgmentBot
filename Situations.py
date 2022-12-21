@@ -6,8 +6,9 @@ class BetSituation(object):
         self.agents = agents
 
 class SubroundSituation(object):
-    def __init__(self,hand_size,card_stack,trump,agents):
+    def __init__(self,hand_size,card_stack,trump,highest_adjusted_val,agents):
         self.hand_size = hand_size
         self.card_stack = card_stack
         self.trump = trump
+        self.highest_adjusted_val = highest_adjusted_val
         self.agents = agents

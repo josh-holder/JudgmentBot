@@ -7,6 +7,7 @@ from tensorflow.keras import layers
 from tensorflow.keras.layers import concatenate, Masking
 from tensorflow.keras import Input, Model
 from JudgmentGame import JudgmentGame
+from JudgmentAgent import JudgmentAgent
 from deck_of_cards import DeckOfCards
 from Situations import BetSituation, SubroundSituation
 import numpy as np
@@ -16,19 +17,69 @@ from JudgmentUtils import calcSubroundAdjustedValue
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 DEFAULT_HAND_SIZES = [1,2,3,4,5,6,7,8,9,10,11,12,13,12,11,10,9,8,7,6,5,4,3,2,1]
+DEFAULT_AGENTS = [JudgmentAgent(0),JudgmentAgent(1),JudgmentAgent(2),JudgmentAgent(3)]
 POINT_NORMALIZATION = 130 #normalize by max realistic point change in a given round
 
-def convertSubroundSituationToActionState(srs, hand):
+def convertSubroundSituationToActionState(srs, agent, remaining_agents, publicly_played_cards, chosen_card, win_chance):
     """
-    Given a subround situation, the agent's hand, and a card to play, outputs an action state
-    suitable for input into the action Q function. Action state is of the form:
+    Given a SubroundSituation object, current Agent, a list of the Agents going after the current Agent, 
+    a list of publicly available played cards (1 at index i if card i has been publicly played), and the chose card,
+    outputs an action state suitable for input into the action Q function. Action state is of the form:
 
     [lstm_input for players still to go, 
     [current winner relative points, current winner bet, current winner earned (normalized),
     one-hot encoding of cards still in game, one-hot encoding of action cards, one-hot encoding of trump suit,
     agent bet, agent percentage of subrounds won, number of cards in hand]]
     """
-    pass
+    #~~~~~~Determine next_agents series to feed into LSTM~~~~~~~~~~
+    next_agents_series = []
+    for next_agent in remaining_agents:
+        relative_points = (next_agent.points - agent.points)/POINT_NORMALIZATION
+        next_agent_data = [relative_points,next_agent.bet/13,next_agent.subrounds_won/13] + next_agent.visibly_out_of_suit
+        next_agents_series.append(next_agent_data)
+    
+    #pad next_agents_series with empty data which will be filtered out with a Mask layer later
+    while len(next_agents_series) < 3:
+        next_agents_series.append([0,0,0,0,0,0,0])
+
+    winning_agent_state = [-1.0,-1.0,-1.0] #by default, there is no winning player so we have all -1s to be masked
+    if len(srs.card_stack) > 0:
+        #determine currently winning player
+        for i,card in enumerate(srs.card_stack):
+            if calcSubroundAdjustedValue(card,srs) == srs.highest_adjusted_val:
+                winning_agent = srs.agents[i]
+        
+        #~~~~~~~~~winning agent information~~~~~~~~~~~~
+        winning_agent_state[0] = (winning_agent.points - agent.points)/POINT_NORMALIZATION
+        winning_agent_state[1] = winning_agent.bet/13
+        winning_agent_state[2] = winning_agent.subrounds_won/13
+
+    parameter_state = np.zeros(112)
+    #~~~~~~~~~~cards still available information~~~~~~~~~~~~
+    cards_still_available = np.ones(52,dtype=int)
+    #if card is in publicly played cards, it can no longer be played by someone else
+    cards_still_available = np.bitwise_xor(cards_still_available,publicly_played_cards)
+    #if card is in your hand, it can't be played by someone else
+    for card in agent.hand:
+        cards_still_available[card.index] = 0
+    cards_still_available[chosen_card.index] = 0 #the card you're about to play can't be played by someone else
+    
+    parameter_state[:52] = cards_still_available
+
+    #~~~~~~~~~~~~card about to be played information~~~~~~~~~~~~
+    card_to_be_played = np.zeros(52,dtype=int)
+    card_to_be_played[chosen_card.index] = 1
+
+    parameter_state[52:104] = card_to_be_played
+
+    #~~~~~~~~~~~~one-hot trump encoding~~~~~~~~~~~~~~~~~~~~~~~~
+    if srs.trump < 4: parameter_state[104+srs.trump] = 1 #if trump is 4, then there is no trump
+    parameter_state[108] = agent.bet/13
+    parameter_state[109] = agent.subrounds_won/13
+    parameter_state[110] = win_chance
+    parameter_state[111] = srs.hand_size
+
+    return [next_agents_series, winning_agent_state, parameter_state]
 
 def convertSubroundSituationToEvalState(srs, agent, remaining_agents, publicly_played_cards, chosen_card):
     """
@@ -42,15 +93,10 @@ def convertSubroundSituationToEvalState(srs, agent, remaining_agents, publicly_p
     [one-hot encoding of cards still in game, one-hot encoding of trump suit, value of chosen card, 
     agent bet, agent percentage of subrounds won, number of cards in hand]]
     """
-    #Calculate maximum adjusted value on the stack thus far, value of current card
-    max_adjusted_val = 0
-    for card in srs.card_stack:
-        adj_val = calcSubroundAdjustedValue(card,srs)
-        if adj_val > max_adjusted_val: max_adjusted_val = adj_val
     adjusted_card_val = calcSubroundAdjustedValue(chosen_card,srs)
 
-    if adjusted_card_val < max_adjusted_val: return None #always loses
-    elif len(srs.card_stack) == 3 and adjusted_card_val > max_adjusted_val: return None #always wins
+    if adjusted_card_val < srs.highest_adjusted_val: return None #always loses, don't need NN eval
+    elif len(srs.card_stack) == 3 and adjusted_card_val > srs.highest_adjusted_val: return None #always wins, don't need NN eval
     else: #state which NN needs to predict
         #Determine next_agents series to feed into LSTM
         next_agents_series = []
@@ -157,17 +203,19 @@ class JudgementGameWDataGen(JudgmentGame):
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
-                srs = SubroundSituation(hand_size,[],trump,turn_order)
+                srs = SubroundSituation(hand_size,[],trump,0,turn_order)
 
                 #Each agent plays a card from it's hand
                 for agent_ind, agent in enumerate(turn_order):
                     chosen_card = agent.playCard(srs)
-
+                    
+                    win_chance = agent.evalSubroundWinChance(chosen_card,srs)
                     remaining_agents = turn_order[agent_ind+1:]
 
-                    action_state_input_data[agent.id].append(convertSubroundSituationToActionState(srs,agent.hand))
+                    action_state_input_data[agent.id].append(convertSubroundSituationToActionState(srs, agent, remaining_agents, publicly_played_cards, chosen_card, win_chance))
                     eval_state_input_data[agent.id] = convertSubroundSituationToEvalState(srs,agent,remaining_agents,publicly_played_cards,chosen_card)
 
+                    srs.highest_adjusted_val = max(srs.highest_adjusted_val, calcSubroundAdjustedValue(chosen_card, srs))
                     srs.card_stack.append(chosen_card)
                     publicly_played_cards[chosen_card.index] = 1
 
@@ -214,6 +262,9 @@ class JudgementGameWDataGen(JudgmentGame):
                 bet_state = bet_state_input_data[agent.id]
                 bet_train_data.append((bet_state,point_change_difference))
 
+                for action_state in action_state_input_data[agent.id]:
+                    action_train_data.append((action_state,point_change_difference))
+
             if self.game_verbose:
                 for agent in self.agents:
                     print("Thus, new agent score is {}.".format(agent.points))
@@ -221,8 +272,9 @@ class JudgementGameWDataGen(JudgmentGame):
 
             self.agents.append(self.agents.pop(0)) #shift order of agents for next round
 
-        
+        print(action_train_data)
         self.agents = sorted(self.agents, key=lambda x: x.id)
+        print(len(action_train_data))
         print(len(eval_train_data))
         print(len(bet_train_data))
         return bet_train_data, eval_train_data, action_train_data
@@ -313,6 +365,7 @@ def initActionModel(layer_sizes=[64, 64, 48,24,12]):
     - Trump suit (4 binary values, also one-hot encoding)
     - Agent bet (normalized to 13)
     - Agent subrounds already won (normalized to 13)
+    - Chance that that card is going to win
     - Number of cards in hand
 
     Output:

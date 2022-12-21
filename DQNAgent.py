@@ -21,9 +21,9 @@ class DQNAgent(SimpleAgent):
         action_model_path = os.path.join(os.getcwd(),action_model_name)
         self.action_model = keras.models.load_model(action_model_path)
 
-    def evaluateSubroundWinChance(self,srs):
+    def evalSubroundWinChance(self,card,srs):
         """
-        Given a subround, evaluates the chance that playing a given card will win the round.
+        Given a card and a subround, evaluates the chance that playing a given card will win the round.
         Deterministically defines win chance as zero if the given action is playing a card lower
         that the current highest card value.
         Otherwise, uses a NN representation to determine this.
@@ -45,25 +45,12 @@ class DQNAgent(SimpleAgent):
         - List of probabilities of winning the subround, with index i correpsonding to the probability
             of winning the subround with card i in the agent's hand.
         """   
-        #Calculate maximum adjusted value on the stack thus far
-        max_adjusted_val = 0
-        for card in srs.card_stack:
-            adj_val = calcSubroundAdjustedValue(card,srs)
-            if adj_val > max_adjusted_val: max_adjusted_val = adj_val
+        basic_output = super().evalSubroundWinChance(card,srs)
 
-        win_chances = []
-        for card in self.hand:
-            adjusted_card_val = calcSubroundAdjustedValue(card,srs)
-
-            #If the card already loses to an existing card on the stack, win_chance is zero
-            if adjusted_card_val < max_adjusted_val: win_chances.append(0)
-            #Otherwise, if all other players have already played a card and this card is higher, win chance is 1
-            elif len(srs.card_stack) == 3 and adjusted_card_val > max_adjusted_val: win_chances.append(1)
-            #Otherwise, we evaluate the win chance with a neural network:
-            else: pass
-
-            
-        return win_chances
+        #If the deterministic version of the function couldn't come up with an answer,
+        #determine the win chance with a neural network.
+        if basic_output == None:
+            return None #TODO
 
 
     def playCard(self, srs):
