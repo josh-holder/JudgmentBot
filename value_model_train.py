@@ -125,7 +125,6 @@ def convertSubroundSituationToEvalState(srs, agent, remaining_agents, publicly_p
 
         return [next_agents_series, parameter_state]
 
-
 def convertBetSituationToBetState(bs, hand, bet):
     """
     Given bet situation, hand, and bet value, outputs a bet state suitable for input into
@@ -146,7 +145,6 @@ def convertBetSituationToBetState(bs, hand, bet):
     bet_state[59] = bet
 
     return bet_state
-
 
 class JudgementGameWDataGen(JudgmentGame):
     def playGameForData(self):
@@ -425,31 +423,37 @@ def postProcessTrainData(train_data_list):
         
     return reformatted_train_data
 
-def trainEvalFunctionOnExpertAlgorithm():
-    start = time.time()
-    eval_train_data = []
+def trainEvalFunctionOnExpertAlgorithm(use_old_data=True):
+    #~~~~~~~~~~~ LOAD OR GENERATE EVAL TRAINING DATA
     eval_data_path = os.path.join(os.getcwd(),"eval_expert_train_data/eval_expert_train_data.pkl")
+    if not use_old_data:
+        start = time.time()
+        eval_train_data = []
 
-    train_data_goal = 100000
-    last_modulus = np.inf
-    while len(eval_train_data) < train_data_goal:
-        jg = JudgementGameWDataGen(agents=[HumanBetAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
+        train_data_goal = 100000
+        last_modulus = np.inf
+        while len(eval_train_data) < train_data_goal:
+            jg = JudgementGameWDataGen(agents=[HumanBetAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
 
-        bet_train_data, curr_eval_train_data, action_train_data = jg.playGameForData()
-        eval_train_data += curr_eval_train_data
-        print(f"Eval training data: {len(eval_train_data)}/{train_data_goal}")
+            bet_train_data, curr_eval_train_data, action_train_data = jg.playGameForData()
+            eval_train_data += curr_eval_train_data
+            print(f"Eval training data: {len(eval_train_data)}/{train_data_goal}")
 
-        if len(eval_train_data) % floor(train_data_goal/5) < last_modulus:
-            with open(eval_data_path, 'wb') as f:
-                print(f"Saving {len(eval_train_data)} pieces of training data in {eval_data_path}...")
-                pickle.dump(eval_train_data,f)
-            last_modulus = len(eval_train_data) % floor(train_data_goal/5)
-    
-    with open(eval_data_path, 'wb') as f:
-        print(f"Saving {len(eval_train_data)} pieces of training data in {eval_data_path}...")
-        pickle.dump(eval_train_data,f)
-    print(f"Done generating training data in {time.time()-start} seconds")
+            if len(eval_train_data) % floor(train_data_goal/5) < last_modulus:
+                with open(eval_data_path, 'wb') as f:
+                    print(f"Saving {len(eval_train_data)} pieces of training data in {eval_data_path}...")
+                    pickle.dump(eval_train_data,f)
+                last_modulus = len(eval_train_data) % floor(train_data_goal/5)
+        
+        with open(eval_data_path, 'wb') as f:
+            print(f"Saving {len(eval_train_data)} pieces of training data in {eval_data_path}...")
+            pickle.dump(eval_train_data,f)
+        print(f"Done generating training data in {time.time()-start} seconds")
+    else:
+        with open(eval_data_path, 'rb') as f:
+            eval_train_data = pickle.load(f)
 
+    #~~~~~~~~~ SPLIT INTO TRAINING AND TEST SET~~~~~~~~~~~~~
     data_split = 0.8
     split_idx = int(data_split*len(eval_train_data))
 
@@ -482,7 +486,6 @@ def trainEvalFunctionOnExpertAlgorithm():
 
     eval_model_path = os.path.join(os.getcwd(),'eval_model')
     model.save(eval_model_path)
-
 
 if __name__ == "__main__":
     trainEvalFunctionOnExpertAlgorithm()
