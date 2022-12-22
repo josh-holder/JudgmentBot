@@ -484,9 +484,40 @@ def trainEvalFunctionOnExpertAlgorithm(use_old_data=True):
     print("Evaluation:")
     model.evaluate(test_data_inputs,test_data_outputs,verbose=2)
 
-    eval_model_path = os.path.join(os.getcwd(),'eval_model')
+    eval_model_path = os.path.join(os.getcwd(),'eval_expert_train_model')
     model.save(eval_model_path)
 
+def generateTrainingData():
+    """
+    Generate training data from expert play to train agent action, eval, and bet network.
+    """
+    training_games = 10
+    game_num = 0
+    bet_train_data = []
+    action_train_data = []
+    start = time.time()
+    while game_num < training_games:
+        jg = JudgementGameWDataGen(agents=[HumanBetAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
+        curr_bet_train_data, eval_train_data, curr_action_train_data = jg.playGameForData()
+        bet_train_data += curr_bet_train_data
+        action_train_data += curr_action_train_data
+
+        print(f"Game {game_num}/{training_games}",end='\r')
+        game_num += 1
+    print(f"Generated data in {time.time()-start} seconds")
+
+    bet_data_path = os.path.join(os.getcwd(),"bet_expert_train_data/bet_expert_train_data.pkl")
+    action_data_path = os.path.join(os.getcwd(),"action_expert_train_data/action_expert_train_data.pkl")
+    with open(bet_data_path,'wb') as f:
+        pickle.dump(bet_train_data,f)
+    with open(action_data_path,'wb') as f:
+        pickle.dump(action_train_data,f)
+    
+    print(len(action_train_data))
+    print(len(bet_train_data))
+
+def 
+
 if __name__ == "__main__":
-    trainEvalFunctionOnExpertAlgorithm()
+    generateTrainingData()
 

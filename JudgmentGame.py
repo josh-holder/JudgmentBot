@@ -131,6 +131,14 @@ class JudgmentGame(object):
         for agent in self.agents:
             agent.reset()
 
+    def resetGame(self):
+        """
+        Resets all properties agents, including points.
+        """
+        for agent in self.agents:
+            agent.reset()
+            agent.points=0
+
 
 if __name__ == "__main__":
     # scores = [0,0,0,0]
