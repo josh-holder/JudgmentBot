@@ -18,6 +18,7 @@ import os
 import pickle
 from math import floor
 import time
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 DEFAULT_HAND_SIZES = [1,2,3,4,5,6,7,8,9,10,11,12,13,12,11,10,9,8,7,6,5,4,3,2,1]
@@ -288,7 +289,7 @@ def initBetModel():
                     optimizer = tf.optimizers.Adam())
     return model
 
-def initEvalModel(layer_sizes=[48,24,12]):
+def initEvalModel(layer_sizes=[48,48,24]):
     """
     Model which, given playing situation, outputs the probability that playing a given card will result
     in winning the hand.
@@ -322,7 +323,7 @@ def initEvalModel(layer_sizes=[48,24,12]):
     for i,layer in enumerate(layer_sizes):
         MLP_layer = layers.Dense(48,activation="relu")(input_layer)
         if i % 2 == 0:
-            adjust_layer = layers.Dropout(0.1)(MLP_layer)
+            adjust_layer = layers.Dropout(0.2)(MLP_layer)
         else:
             adjust_layer = layers.BatchNormalization()(MLP_layer)
 
@@ -397,15 +398,39 @@ def initActionModel(layer_sizes=[64, 64, 48,24,12]):
 
     return model
 
-def generateTrainingData():
-    jg = JudgmentGame()
+def postProcessTrainData(train_data_list):
+    """
+    Converts list of training data to batch form. Expects training data of the form:
+    [[np.array(1,x,y),np.array(1,a,b)...],
+     [np.array(1,x,y),np.array(1,a,b)...],
+     ...,
+     [np.array(1,x,y),np.array(1,a,b)...]]
+
+    and converts to the form:
+    [np.array(n,x,y),np.array(n,a,b)...]
+    """
+    example_train_data = train_data_list[0]
+    
+    #generate correctly sized numpy array
+    reformatted_train_data = []
+    batch_size = len(train_data_list)
+    for example_train_data_element in example_train_data:
+        new_shape = [batch_size] + list(np.shape(example_train_data_element))
+        reformatted_train_data.append(np.zeros((new_shape)))
+    
+    #fill array with data
+    for data_type_index in range(len(reformatted_train_data)):
+        for i in range(batch_size):
+            reformatted_train_data[data_type_index][i,:] = train_data_list[i][data_type_index]
+        
+    return reformatted_train_data
 
 def trainEvalFunctionOnExpertAlgorithm():
     start = time.time()
     eval_train_data = []
     eval_data_path = os.path.join(os.getcwd(),"eval_expert_train_data/eval_expert_train_data.pkl")
 
-    train_data_goal = 10000
+    train_data_goal = 100000
     last_modulus = np.inf
     while len(eval_train_data) < train_data_goal:
         jg = JudgementGameWDataGen(agents=[HumanBetAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
@@ -424,6 +449,40 @@ def trainEvalFunctionOnExpertAlgorithm():
         print(f"Saving {len(eval_train_data)} pieces of training data in {eval_data_path}...")
         pickle.dump(eval_train_data,f)
     print(f"Done generating training data in {time.time()-start} seconds")
+
+    data_split = 0.8
+    split_idx = int(data_split*len(eval_train_data))
+
+    train_data_inputs = []
+    train_data_outputs = []
+    test_data_inputs = []
+    test_data_outputs = []
+    for i, train_data_total in enumerate(eval_train_data):
+        if i < split_idx:
+            train_data_inputs.append(train_data_total[0])
+            train_data_outputs.append(int(train_data_total[1]))
+        else:
+            test_data_inputs.append(train_data_total[0])
+            test_data_outputs.append(int(train_data_total[1]))
+            
+    train_data_inputs = postProcessTrainData(train_data_inputs)
+    test_data_inputs = postProcessTrainData(test_data_inputs)
+    train_data_outputs = np.array(train_data_outputs)
+    test_data_outputs=np.array(test_data_outputs)
+
+    model = initEvalModel()
+
+    print("Begin Training:")
+    start = time.time()
+    model.fit(train_data_inputs,train_data_outputs,epochs=250,batch_size=128)
+    print(f"Finished training in {time.time()-start} seconds:")
+
+    print("Evaluation:")
+    model.evaluate(test_data_inputs,test_data_outputs,verbose=2)
+
+    eval_model_path = os.path.join(os.getcwd(),'eval_model')
+    model.save(eval_model_path)
+
 
 if __name__ == "__main__":
     trainEvalFunctionOnExpertAlgorithm()
