@@ -1,9 +1,5 @@
 #Judgment agent class
 import random
-
-from pkg_resources import invalid_marker
-from deck_of_cards import DeckOfCards
-from Situations import BetSituation, SubroundSituation
 from JudgmentUtils import calcSubroundAdjustedValue
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
@@ -80,7 +76,7 @@ class JudgmentAgent(object):
         #returns chosen card and removes it from hand
         return card_to_play
 
-    def evalSubroundWinChance(self,card,srs):
+    def evalSubroundWinChance(self,srs,card):
         """
         Given card (usually the card that the agent chose to play) and a SubroundSituation, 
         determines the chance that a card has to win the game.

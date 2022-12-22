@@ -8,6 +8,7 @@ from HumanAgent import HumanAgent
 from HumanBetAgent import HumanBetAgent
 from JudgmentUtils import calcSubroundAdjustedValue
 import time
+import numpy as np
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 DEFAULT_HAND_SIZES = [1,2,3,4,5,6,7,8,9,10,11,12,13,12,11,10,9,8,7,6,5,4,3,2,1]
@@ -56,16 +57,21 @@ class JudgmentGame(object):
 
             starting_agent = 0
             turn_order = self.agents
+            srs = SubroundSituation(hand_size,[],trump,0,turn_order,np.zeros(52,dtype=int))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
-                srs = SubroundSituation(hand_size,[],trump,0,turn_order)
+                srs.card_stack = []
+                srs.highest_adjusted_val = 0
+                srs.agents = turn_order
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
-                    played_card = agent.playCard(srs)
-                    srs.highest_adjusted_val = max(srs.highest_adjusted_val, calcSubroundAdjustedValue(played_card, srs))
-                    srs.card_stack.append(played_card)
+                    chosen_card = agent.playCard(srs)
+
+                    srs.highest_adjusted_val = max(srs.highest_adjusted_val, calcSubroundAdjustedValue(chosen_card, srs))
+                    srs.card_stack.append(chosen_card)
+                    srs.publicly_played_cards[chosen_card.index] = 1
 
                 winning_agent_ind = self.evaluateSubround(srs)
                 turn_order[winning_agent_ind].subrounds_won += 1
@@ -133,7 +139,7 @@ class JudgmentGame(object):
 
     def resetGame(self):
         """
-        Resets all properties agents, including points.
+        Resets all properties of agents, including points.
         """
         for agent in self.agents:
             agent.reset()

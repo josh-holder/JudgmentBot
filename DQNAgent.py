@@ -21,7 +21,7 @@ class DQNAgent(SimpleAgent):
         action_model_path = os.path.join(os.getcwd(),action_model_name)
         self.action_model = keras.models.load_model(action_model_path)
 
-    def evalSubroundWinChance(self,card,srs):
+    def evalSubroundWinChance(self,srs,card):
         """
         Given a card and a subround, evaluates the chance that playing a given card will win the round.
         Deterministically defines win chance as zero if the given action is playing a card lower

@@ -1,6 +1,5 @@
 from SimpleAgent import SimpleAgent
-from JudgmentAgent import JudgmentAgent
-from JudgmentUtils import calcSubroundAdjustedValue
+from JudgmentUtils import convertSubroundSituationToEvalState
 import os
 from tensorflow import keras
 import tensorflow as tf
@@ -9,13 +8,16 @@ import numpy as np
 import time
 
 class HumanBetAgent(SimpleAgent):
-    def __init__(self,id,bet_model_name="human_bet_model",eval_model_name="eval_expert_train_model"):
+    def __init__(self,id,bet_model_name="human_bet_model",eval_model_name="eval_expert_train_model",use_eval_model=False):
         super().__init__(id)
         bet_model_path = os.path.join(os.getcwd(),bet_model_name)
         self.bet_model = keras.models.load_model(bet_model_path)
 
-        eval_model_path = os.path.join(os.getcwd(),eval_model_name)
-        self.eval_model = keras.models.load_model(bet_model_path)
+        #load evaluation model trained on data from HumanBet agents - updated 12/22
+        self.use_eval_model = use_eval_model
+        if use_eval_model:
+            eval_model_path = os.path.join(os.getcwd(),eval_model_name)
+            self.eval_model = keras.models.load_model(eval_model_path)
 
     def convertBetSituationToNNInput(self,bs):
         bs_as_nn_input = -0.5*np.ones((1,56)) #want mean to be approx 0
@@ -62,6 +64,20 @@ class HumanBetAgent(SimpleAgent):
                 self.bet = possible_bet
 
         return self.bet
+
+    def evalSubroundWinChance(self, srs, card):
+        basic_output = super().evalSubroundWinChance(srs, card)
+
+        #If the deterministic version of the function couldn't come up with an answer,
+        #determine the win chance with a neural network.
+        if basic_output == None:
+            if self.use_eval_model:
+                eval_state = convertSubroundSituationToEvalState(srs, self, card)
+                eval_state = [eval_state_component[np.newaxis,:] for eval_state_component in eval_state]
+                return self.eval_model(eval_state)
+            else: return None
+        else: 
+            return basic_output
 
 
 if __name__ == "__main__":
