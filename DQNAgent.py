@@ -1,5 +1,6 @@
 from JudgmentUtils import convertSubroundSituationToEvalState, convertSubroundSituationToActionState, convertBetSituationToBetState
 from SimpleAgent import SimpleAgent
+from HumanBetAgent import HumanBetAgent
 from JudgmentGame import JudgmentGame
 from tensorflow import keras
 import tensorflow as tf
@@ -155,7 +156,9 @@ class DQNAgent(SimpleAgent):
             elif bet > 4:
                 break
 
-        return best_bet
+        self.bet = best_bet
+        return self.bet
 
 if __name__ == "__main__":
-    pass
+    jg = JudgmentGame(game_verbose=True,agents=[DQNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
+    jg.playGame()
