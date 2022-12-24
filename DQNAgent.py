@@ -9,10 +9,12 @@ from tensorflow.keras.layers import concatenate, Masking
 from tensorflow.keras import Input, Model
 import numpy as np
 import os
+import random
 
 class DQNAgent(SimpleAgent):
-    def __init__(self,id,bet_model_name="bet_expert_train_model",eval_model_name="eval_expert_train_model",action_model_name="action_expert_train_model"):
+    def __init__(self,id,epsilon=0,bet_model_name="bet_expert_train_model",eval_model_name="eval_expert_train_model",action_model_name="action_expert_train_model"):
         super().__init__(id)
+        self.epsilon = epsilon
 
         bet_model_path = os.path.join(os.getcwd(),bet_model_name)
         self.bet_model = keras.models.load_model(bet_model_path)
@@ -58,7 +60,7 @@ class DQNAgent(SimpleAgent):
         else: 
             return basic_output
 
-    def playCard(self, srs):
+    def chooseCard(self, srs):
         """
         Given a subround situation, determines what card to play:
 
@@ -118,7 +120,6 @@ class DQNAgent(SimpleAgent):
         - How to go about training RNNs for input into evaluation function
         - How to go about adding multiple heads to one function, using one in the other?
         """
-        self.determineCardOptions(srs)
         best_card = None
         best_act_val = -np.inf
         for card in self.available_cards:
@@ -133,7 +134,31 @@ class DQNAgent(SimpleAgent):
                 best_card = card
                 best_act_val = act_val
 
-        return best_card
+        #If epsilon is not zero, select action epsilon-greedily.
+        if self.epsilon > 0:
+            rand_num = random.random()
+            num_valid_actions = len(self.available_cards)
+
+            threshold = 0
+            old_threshold = 0
+
+            for card in self.available_cards:
+                if card == best_card:
+                    threshold += (1-self.epsilon)+self.epsilon/num_valid_actions
+                else:
+                    threshold += self.epsilon/num_valid_actions
+
+                if old_threshold <= rand_num and rand_num <= threshold:
+                    return card
+                else:
+                    old_threshold=threshold
+
+            raise Exception(f"ERROR: Agent {self.id} failed to select a card.")
+
+        #If epsilon=0, return greedy action
+        else:
+            return best_card
+
 
     def makeBet(self, bs):
         possible_bets = list(range(bs.hand_size+1))
@@ -155,9 +180,33 @@ class DQNAgent(SimpleAgent):
             #If the bet is larger than 4 and it's not better than the last one, stop evaluating
             elif bet > 4:
                 break
+        
+        #If epsilon is not zero, select action epsilon-greedily.
+        if self.epsilon > 0:
+            rand_num = random.random()
+            num_valid_bets = len(possible_bets)
 
-        self.bet = best_bet
-        return self.bet
+            threshold = 0
+            old_threshold = 0
+
+            for bet in possible_bets:
+                if bet == best_bet:
+                    threshold += (1-self.epsilon)+self.epsilon/num_valid_bets
+                else:
+                    threshold += self.epsilon/num_valid_bets
+
+                if old_threshold <= rand_num and rand_num <= threshold:
+                    self.bet = bet
+                    return self.bet
+                else:
+                    old_threshold=threshold
+            
+            raise Exception(f"ERROR: Agent {self.id} failed to make a bet.")
+        
+        #If epsilon=0, return greedy action
+        else:
+            self.bet = best_bet
+            return self.bet
 
 if __name__ == "__main__":
     jg = JudgmentGame(game_verbose=True,agents=[DQNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])

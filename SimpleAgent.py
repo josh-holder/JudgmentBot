@@ -137,6 +137,4 @@ class SimpleAgent(JudgmentAgent):
 
         if play_verbose: print("Playing {}".format(card_to_play.name))
 
-        self.hand.remove(card_to_play)
-
         return card_to_play

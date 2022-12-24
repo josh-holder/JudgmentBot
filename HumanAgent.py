@@ -177,6 +177,5 @@ class HumanAgent(JudgmentAgent):
             print("Try again - invalid card")
         
         card_to_play = self.hand[card_index]
-        self.hand.remove(card_to_play)
 
         return card_to_play

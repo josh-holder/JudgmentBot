@@ -44,7 +44,10 @@ class JudgmentAgent(object):
         Returns choice of card (Card object)
         """
         self.determineCardOptions(srs)
-        return self.chooseCard(srs)
+        chosen_card = self.chooseCard(srs)
+
+        self.hand.remove(chosen_card)
+        return chosen_card
     
     def makeBet(self,bs):
         """
@@ -72,8 +75,6 @@ class JudgmentAgent(object):
         the gamestate and make a more intelligent choice.
         """
         card_to_play = random.choices(self.available_cards)[0]
-        self.hand.remove(card_to_play)
-        #returns chosen card and removes it from hand
         return card_to_play
 
     def evalSubroundWinChance(self,srs,card):
