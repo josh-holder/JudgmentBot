@@ -48,7 +48,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
         next_agent_data = [relative_points,next_agent.bet/13,next_agent.subrounds_won/13] + next_agent.visibly_out_of_suit
         next_agents_series[i,:] = np.array(next_agent_data)
 
-    winning_agent_state = [-1.0,-1.0,-1.0] #by default, there is no winning player so we have all -1s to be masked
+    winning_agent_state = -1*np.ones(3) #by default, there is no winning player so we have all -1s to be masked
     if len(srs.card_stack) > 0:
         #determine currently winning player
         for i,card in enumerate(srs.card_stack):

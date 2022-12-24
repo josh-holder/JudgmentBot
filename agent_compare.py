@@ -1,9 +1,8 @@
-from audioop import avg
 from JudgmentGame import JudgmentGame
-from NNAgent import NNAgent
+from HumanBetAgent import HumanBetAgent
 from SimpleAgent import SimpleAgent
 from JudgmentAgent import JudgmentAgent
-from RandomBetSimplePlayAgent import RandomBetSimplePlayAgent
+from DQNAgent import DQNAgent
 import random
 from copy import deepcopy
 
@@ -27,4 +26,4 @@ def compareAgents(agents_to_compare,games_num=1000):
     return avg_scores
 
 if __name__ == "__main__":
-    compareAgents([NNAgent(0),SimpleAgent(1),RandomBetSimplePlayAgent(2),JudgmentAgent(3)],games_num=1000)
+    compareAgents([DQNAgent(0),HumanBetAgent(1),SimpleAgent(2),JudgmentAgent(3)],games_num=1000)

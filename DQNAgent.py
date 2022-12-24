@@ -1,15 +1,16 @@
-from JudgmentUtils import calcSubroundAdjustedValue
+from JudgmentUtils import convertSubroundSituationToEvalState, convertSubroundSituationToActionState, convertBetSituationToBetState
 from SimpleAgent import SimpleAgent
 from JudgmentGame import JudgmentGame
 from tensorflow import keras
 import tensorflow as tf
-from tf.keras import layers
+from tensorflow.keras import layers
 from tensorflow.keras.layers import concatenate, Masking
 from tensorflow.keras import Input, Model
+import numpy as np
 import os
 
 class DQNAgent(SimpleAgent):
-    def __init__(self,id,bet_model_name="bet_model",eval_model_name="eval_model",action_model_name="action_model"):
+    def __init__(self,id,bet_model_name="bet_expert_train_model",eval_model_name="eval_expert_train_model",action_model_name="action_expert_train_model"):
         super().__init__(id)
 
         bet_model_path = os.path.join(os.getcwd(),bet_model_name)
@@ -45,13 +46,16 @@ class DQNAgent(SimpleAgent):
         - List of probabilities of winning the subround, with index i correpsonding to the probability
             of winning the subround with card i in the agent's hand.
         """   
-        basic_output = super().evalSubroundWinChance(card,srs)
+        basic_output = super().evalSubroundWinChance(srs, card)
 
         #If the deterministic version of the function couldn't come up with an answer,
         #determine the win chance with a neural network.
         if basic_output == None:
-            return None #TODO
-
+            eval_state = convertSubroundSituationToEvalState(srs, self, card)
+            eval_state = [eval_state_component[np.newaxis,:] for eval_state_component in eval_state]
+            return self.eval_model(eval_state)
+        else: 
+            return basic_output
 
     def playCard(self, srs):
         """
@@ -113,61 +117,45 @@ class DQNAgent(SimpleAgent):
         - How to go about training RNNs for input into evaluation function
         - How to go about adding multiple heads to one function, using one in the other?
         """
-        self.evaluateSubroundWinChance(srs)
-        # print("???")
-        # print(srs.card_stack)
-        card = super().playCard(srs)
-        return card
+        self.determineCardOptions(srs)
+        best_card = None
+        best_act_val = -np.inf
+        for card in self.available_cards:
+            act_state = convertSubroundSituationToActionState(srs,self,card)
+            # print(act_state)
+            # print(np.shape(act_state))
 
-    def convertSubroundSituationToNNInput(self,srs):
-        pass
+            act_state = [act_state_component[np.newaxis,:] for act_state_component in act_state]
+            act_val = self.action_model(act_state)
+
+            if act_val > best_act_val:
+                best_card = card
+                best_act_val = act_val
+
+        return best_card
+
+    def makeBet(self, bs):
+        possible_bets = list(range(bs.hand_size+1))
+        if len(bs.other_bets) == (len(bs.agents)-1):
+            invalid_bet = bs.hand_size-sum(bs.other_bets)
+            if invalid_bet in possible_bets: possible_bets.remove(invalid_bet)
+
+        best_bet = None
+        best_bet_val = -np.inf
+        for bet in possible_bets:
+            bet_state = convertBetSituationToBetState(bs, self, bet)
+            # bet_state = [bet_state_component[np.newaxis,:] for bet_state_component in bet_state]
+            bet_state = bet_state[np.newaxis,:]
+            bet_val = self.bet_model(bet_state)
+
+            if bet_val > best_bet_val:
+                best_bet = bet
+                best_bet_val = bet_val
+            #If the bet is larger than 4 and it's not better than the last one, stop evaluating
+            elif bet > 4:
+                break
+
+        return best_bet
 
 if __name__ == "__main__":
-    time_series_input = Input(shape=(3,7))
-    time_series_mask = Masking()(time_series_input)
-    time_series_LSTM = layers.LSTM(20, activation="relu", unroll=True)(time_series_mask)
-
-    parameters = Input(shape=59)
-
-    all_params = concatenate([time_series_LSTM, parameters])
-
-    MLP_1 = layers.Dense(48,activation="relu")(all_params)
-    Dropout_1 = layers.Dropout(0.1)(MLP_1)
-
-    MLP_2 = layers.Dense(24,activation="relu")(Dropout_1)
-    Dropout_2 = layers.Dropout(0.1)(MLP_2)
-
-    MLP_3 = layers.Dense(12,activation="relu")(Dropout_2)
-    Dropout_3 = layers.Dropout(0.1)(MLP_3)
-
-    win_value = layers.Dense(1,activation="relu")(Dropout_3)
-
-    model = Model(inputs=[time_series_input,parameters],outputs=win_value)
-    model.compile(loss = tf.losses.MeanSquaredError(),
-                      optimizer = tf.optimizers.Adam())
-    print(model.summary())
-    lstm_input = np.zeros((1,3,7))
-    lstm_input[0,:,:] = [[0.1,0.2,0.5,1,1,1,1],
-                       [-0.1,0.2,0,1,1,1,1],
-                       [0,0,0,0,0,0,0]]
-    # lstm_input[1,:,:] = [[0.1,0.2,0.5,1,1,1,1],
-    #                    [-0.1,0.2,0,1,1,1,1],
-    #                    [1,1,1,1,2,0,1]]
-
-    lstm_input_list = [[[0.1,0.2,0.5,1,1,1,1],
-                       [-0.1,0.2,0,1,1,1,1]],
-                       [[0.1,0.2,0.5,1,1,1,1],
-                       [-0.1,0.2,0,1,1,1,1],
-                       [1,1,1,1,2,0,1]]]
-
-    padded_lstm_inputs = tf.keras.preprocessing.sequence.pad_sequences(lstm_input_list,padding="post",dtype="float")
-
-    mask_test = Masking()
-
-    print(padded_lstm_inputs)
-    masked_list = mask_test(padded_lstm_inputs)
-    print(masked_list._keras_mask)
-
-    param_input = np.zeros((1,59))
-    param_input[0,:] = [1,1,1,0,1,1,0,0,0,0,0,0,0,1,1,1,0,1,1,0,0,0,0,0,0,0,1,1,1,0,1,1,0,0,0,0,0,0,0,1,1,1,0,1,1,0,0,0,0,0,0,0,0,1,0,0,0.1,0,1]
-    print(model([lstm_input,param_input]))
+    pass
