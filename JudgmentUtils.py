@@ -1,6 +1,24 @@
 import numpy as np
 from nn_config import POINT_NORMALIZATION
 
+class LowComplexityAgent(object):
+    def __init__(self, full_agent):
+        """
+        Includes everything but agent ID, and any other things such as agent models
+        """
+        self.points = full_agent.points
+        self.hand = full_agent.hand
+        self.subrounds_won = full_agent.subrounds_won
+        self.bet = full_agent.bet
+        self.visibly_out_of_suit = full_agent.visibly_out_of_suit
+
+def convertListOfAgentsToLCAgents(full_agents):
+    lc_agents = []
+    for full_agent in full_agents:
+        lc_agents.append(LowComplexityAgent(full_agent))
+    
+    return lc_agents
+
 def calcSubroundAdjustedValue(card,srs):
     """
     Given a card and subround situation, returns a simplified value for the card.
@@ -157,3 +175,58 @@ def convertBetSituationToBetState(bs, agent, bet):
     bet_state[59] = bet
 
     return bet_state
+
+def postProcessTrainData(train_data_list):
+    """
+    Converts list of training data to batch form. Expects training data of the form:
+    [[np.array(1,x,y),np.array(1,a,b)...],
+     [np.array(1,x,y),np.array(1,a,b)...],
+     ...,
+     [np.array(1,x,y),np.array(1,a,b)...]]
+
+    and converts to the form:
+    [np.array(n,x,y),np.array(n,a,b)...]
+    """
+    example_train_data = train_data_list[0]
+    
+    #generate correctly sized numpy array
+    reformatted_train_data = []
+    batch_size = len(train_data_list)
+
+    for example_train_data_element in example_train_data:
+        new_shape = [batch_size] + list(np.shape(example_train_data_element))
+        reformatted_train_data.append(np.zeros((new_shape)))
+
+    print(example_train_data)
+    print(example_train_data_element)
+
+    #fill array with data
+    for data_type_index in range(len(reformatted_train_data)):
+        for i in range(batch_size):
+            reformatted_train_data[data_type_index][i,:] = train_data_list[i][data_type_index]
+        
+    return reformatted_train_data
+
+def postProcessBetTrainData(train_data_list):
+    """
+    Converts list of training data to batch form. Expects training data of the form:
+    [[np.array(1,x,y),
+     ...,
+     [np.array(1,x,y)]
+
+    and converts to the form:
+    [np.array(n,x,y)]
+    """
+    example_train_data = train_data_list[0]
+    
+    #generate correctly sized numpy array
+    batch_size = len(train_data_list)
+    
+    new_shape = [batch_size] + list(np.shape(example_train_data))
+    reformatted_train_data = np.zeros((new_shape))
+
+    #fill array with data
+    for i in range(batch_size):
+        reformatted_train_data[i,:] = train_data_list[i]
+        
+    return reformatted_train_data

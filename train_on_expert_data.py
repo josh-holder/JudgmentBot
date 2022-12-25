@@ -9,73 +9,16 @@ from nn_config import POINT_NORMALIZATION
 from Situations import BetSituation, SubroundSituation
 import numpy as np
 from HumanBetAgent import HumanBetAgent
-from collections import defaultdict as dd
-from JudgmentUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState
 import os
 import pickle
 from math import floor
 import time
-from threading import Thread
+from JudgmentUtils import postProcessTrainData, postProcessBetTrainData
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 DEFAULT_HAND_SIZES = [1,2,3,4,5,6,7,8,9,10,11,12,13,12,11,10,9,8,7,6,5,4,3,2,1]
 DEFAULT_AGENTS = [JudgmentAgent(0),JudgmentAgent(1),JudgmentAgent(2),JudgmentAgent(3)]   
-        
-def postProcessTrainData(train_data_list):
-    """
-    Converts list of training data to batch form. Expects training data of the form:
-    [[np.array(1,x,y),np.array(1,a,b)...],
-     [np.array(1,x,y),np.array(1,a,b)...],
-     ...,
-     [np.array(1,x,y),np.array(1,a,b)...]]
-
-    and converts to the form:
-    [np.array(n,x,y),np.array(n,a,b)...]
-    """
-    example_train_data = train_data_list[0]
-    
-    #generate correctly sized numpy array
-    reformatted_train_data = []
-    batch_size = len(train_data_list)
-
-    for example_train_data_element in example_train_data:
-        new_shape = [batch_size] + list(np.shape(example_train_data_element))
-        reformatted_train_data.append(np.zeros((new_shape)))
-
-    print(example_train_data)
-    print(example_train_data_element)
-
-    #fill array with data
-    for data_type_index in range(len(reformatted_train_data)):
-        for i in range(batch_size):
-            reformatted_train_data[data_type_index][i,:] = train_data_list[i][data_type_index]
-        
-    return reformatted_train_data
-
-def postProcessBetTrainData(train_data_list):
-    """
-    Converts list of training data to batch form. Expects training data of the form:
-    [[np.array(1,x,y),
-     ...,
-     [np.array(1,x,y)]
-
-    and converts to the form:
-    [np.array(n,x,y)]
-    """
-    example_train_data = train_data_list[0]
-    
-    #generate correctly sized numpy array
-    batch_size = len(train_data_list)
-    
-    new_shape = [batch_size] + list(np.shape(example_train_data))
-    reformatted_train_data = np.zeros((new_shape))
-
-    #fill array with data
-    for i in range(batch_size):
-        reformatted_train_data[i,:] = train_data_list[i]
-        
-    return reformatted_train_data
 
 def trainEvalFunctionOnExpertAlgorithm(use_old_data=True):
     #~~~~~~~~~~~ LOAD OR GENERATE EVAL TRAINING DATA
@@ -89,7 +32,7 @@ def trainEvalFunctionOnExpertAlgorithm(use_old_data=True):
         while len(eval_train_data) < train_data_goal:
             jg = JudgmentGame(agents=[HumanBetAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
 
-            bet_train_data, curr_eval_train_data, action_train_data = jg.playGameAndTrackData()
+            bet_train_data, curr_eval_train_data, action_train_data = jg.playGameAndCollectSLData()
             eval_train_data += curr_eval_train_data
             print(f"Eval training data: {len(eval_train_data)}/{train_data_goal}")
 
@@ -153,7 +96,7 @@ def generateTrainingData(gen_eval_data=True,gen_act_data=True,gen_bet_data=True)
 
     #     jg = JudgementGameWDataGen(agents=[HumanBetAgent(0,use_eval_model=True),HumanBetAgent(1,use_eval_model=True),HumanBetAgent(2,use_eval_model=True),HumanBetAgent(3,use_eval_model=True)])
     #     while game_num < training_games:
-    #         curr_bet_train_data, eval_train_data, curr_action_train_data = jg.playGameAndTrackData()
+    #         curr_bet_train_data, eval_train_data, curr_action_train_data = jg.playGameAndCollectSLData()
     #         bet_train_data += curr_bet_train_data
     #         action_train_data += curr_action_train_data
 
@@ -189,7 +132,7 @@ def generateTrainingData(gen_eval_data=True,gen_act_data=True,gen_bet_data=True)
     training_games = 10
     jg = JudgmentGame(agents=[HumanBetAgent(0,use_eval_model=True),HumanBetAgent(1,use_eval_model=True),HumanBetAgent(2,use_eval_model=True),HumanBetAgent(3,use_eval_model=True)])
     while game_num < training_games:    
-        curr_bet_train_data, curr_eval_train_data, curr_action_train_data = jg.playGameAndTrackData()
+        curr_bet_train_data, curr_eval_train_data, curr_action_train_data = jg.playGameAndCollectSLData()
         if gen_bet_data: bet_train_data += curr_bet_train_data
         if gen_act_data: action_train_data += curr_action_train_data
         if gen_eval_data: eval_train_data += curr_eval_train_data
@@ -213,8 +156,11 @@ def generateTrainingData(gen_eval_data=True,gen_act_data=True,gen_bet_data=True)
         with open(eval_data_path,'wb') as f:
             pickle.dump(eval_train_data,f)
 
-def trainModelOnExpertData(model_fn,data_path,model_path,epochs=250,batch_size=128):
-    with open(data_path,'rb') as f:
+def trainActionModelOnExpertData(epochs=250,batch_size=128):
+    act_data_path = os.path.join(os.getcwd(),"action_expert_train_data/action_expert_train_data.pkl")
+    act_model_path = os.path.join(os.getcwd(),"action_expert_train_model")
+    
+    with open(act_data_path,'rb') as f:
         train_data = pickle.load(f)
 
     #~~~~~~~~~ SPLIT INTO TRAINING AND TEST SET~~~~~~~~~~~~~
@@ -238,7 +184,7 @@ def trainModelOnExpertData(model_fn,data_path,model_path,epochs=250,batch_size=1
     train_data_outputs = np.array(train_data_outputs)
     test_data_outputs=np.array(test_data_outputs)
 
-    model = model_fn()
+    model = initActionModel()
 
     print("Begin Training:")
     start = time.time()
@@ -248,7 +194,7 @@ def trainModelOnExpertData(model_fn,data_path,model_path,epochs=250,batch_size=1
     print("Evaluation:")
     model.evaluate(test_data_inputs,test_data_outputs,verbose=2)
 
-    model.save(model_path)
+    model.save(act_model_path)
 
 def trainBetDataOnExpertData(epochs=250,batch_size=128):
     bet_data_path = os.path.join(os.getcwd(),"bet_expert_train_data/bet_expert_train_data.pkl")
@@ -293,4 +239,4 @@ def trainBetDataOnExpertData(epochs=250,batch_size=128):
 if __name__ == "__main__":
     # trainEvalFunctionOnExpertAlgorithm(use_old_data=False)\with open(eval_data_path, 'rb') as f:
     # generateTrainingData()
-    trainBetDataOnExpertData()
+    trainActionModelOnExpertData(batch_size=256)
