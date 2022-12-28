@@ -1,23 +1,24 @@
 import numpy as np
 from nn_config import POINT_NORMALIZATION
 
-class LowComplexityAgent(object):
-    def __init__(self, full_agent):
-        """
-        Includes everything but agent ID, and any other things such as agent models
-        """
-        self.points = full_agent.points
-        self.hand = full_agent.hand
-        self.subrounds_won = full_agent.subrounds_won
-        self.bet = full_agent.bet
-        self.visibly_out_of_suit = full_agent.visibly_out_of_suit
+# class LowComplexityAgent(object):
+#     def __init__(self, full_agent):
+#         """
+#         Includes everything but agent models, which would take a long time to copy
+#         """
+#         self.points = full_agent.points
+#         self.hand = full_agent.hand
+#         self.subrounds_won = full_agent.subrounds_won
+#         self.bet = full_agent.bet
+#         self.visibly_out_of_suit = full_agent.visibly_out_of_suit
+#         self.id = full_agent.id
 
-def convertListOfAgentsToLCAgents(full_agents):
-    lc_agents = []
-    for full_agent in full_agents:
-        lc_agents.append(LowComplexityAgent(full_agent))
+# def convertListOfAgentsToLCAgents(full_agents):
+#     lc_agents = []
+#     for full_agent in full_agents:
+#         lc_agents.append(LowComplexityAgent(full_agent))
     
-    return lc_agents
+#     return lc_agents
 
 def calcSubroundAdjustedValue(card,srs):
     """

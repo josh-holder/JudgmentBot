@@ -1,7 +1,6 @@
 from JudgmentUtils import convertSubroundSituationToEvalState, convertSubroundSituationToActionState, convertBetSituationToBetState
 from SimpleAgent import SimpleAgent
 from HumanBetAgent import HumanBetAgent
-from JudgmentGame import JudgmentGame
 from tensorflow import keras
 import tensorflow as tf
 from tensorflow.keras import layers
@@ -11,19 +10,43 @@ import numpy as np
 import os
 import random
 
+def copyDQNAgentsWithoutModels(init_agents):
+    """
+    Given a list of DQN agents, copies them and returns them without their models attached.
+    Does this to save computation when copying models.
+    """
+    new_agents = []
+    for init_agent in init_agents:
+        new_agent = DQNAgent(init_agent.id,load_models=False)
+        new_agent.points = init_agent.points
+        new_agent.hand = init_agent.hand
+        new_agent.subrounds_won = init_agent.subrounds_won
+        new_agent.bet = init_agent.bet
+        new_agent.visibly_out_of_suit = init_agent.visibly_out_of_suit
+        new_agent.id = init_agent.id
+
+        new_agents.append(new_agent)
+
+    return new_agents
+
 class DQNAgent(SimpleAgent):
-    def __init__(self,id,epsilon=0,bet_model_name="bet_expert_train_model",eval_model_name="eval_expert_train_model",action_model_name="action_expert_train_model"):
+    def __init__(self,id,epsilon=0,load_models=True,bet_model_name="bet_expert_train_model",eval_model_name="eval_expert_train_model",action_model_name="action_expert_train_model"):
         super().__init__(id)
         self.epsilon = epsilon
 
-        bet_model_path = os.path.join(os.getcwd(),bet_model_name)
-        self.bet_model = keras.models.load_model(bet_model_path)
+        if load_models:
+            bet_model_path = os.path.join(os.getcwd(),bet_model_name)
+            self.bet_model = keras.models.load_model(bet_model_path)
 
-        eval_model_path = os.path.join(os.getcwd(),eval_model_name)
-        self.eval_model = keras.models.load_model(eval_model_path)
+            eval_model_path = os.path.join(os.getcwd(),eval_model_name)
+            self.eval_model = keras.models.load_model(eval_model_path)
 
-        action_model_path = os.path.join(os.getcwd(),action_model_name)
-        self.action_model = keras.models.load_model(action_model_path)
+            action_model_path = os.path.join(os.getcwd(),action_model_name)
+            self.action_model = keras.models.load_model(action_model_path)
+        else:
+            self.action_model = None
+            self.bet_model = None
+            self.eval_model = None
 
     def evalSubroundWinChance(self,srs,card):
         """
@@ -207,7 +230,3 @@ class DQNAgent(SimpleAgent):
         else:
             self.bet = best_bet
             return self.bet
-
-if __name__ == "__main__":
-    jg = JudgmentGame(game_verbose=True,agents=[DQNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
-    jg.playGame()

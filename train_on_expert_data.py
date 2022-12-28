@@ -196,7 +196,7 @@ def trainActionModelOnExpertData(epochs=250,batch_size=128):
 
     model.save(act_model_path)
 
-def trainBetDataOnExpertData(epochs=250,batch_size=128):
+def trainBetModelOnExpertData(epochs=250,batch_size=128):
     bet_data_path = os.path.join(os.getcwd(),"bet_expert_train_data/bet_expert_train_data.pkl")
     bet_model_path = os.path.join(os.getcwd(),"bet_expert_train_model")
     with open(bet_data_path,'rb') as f:
@@ -239,4 +239,5 @@ def trainBetDataOnExpertData(epochs=250,batch_size=128):
 if __name__ == "__main__":
     # trainEvalFunctionOnExpertAlgorithm(use_old_data=False)\with open(eval_data_path, 'rb') as f:
     # generateTrainingData()
+    trainBetModelOnExpertData(batch_size=256)
     trainActionModelOnExpertData(batch_size=256)

@@ -4,7 +4,8 @@ from Situations import BetSituation, SubroundSituation
 from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent
 from HumanBetAgent import HumanBetAgent
-from JudgmentUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState, convertListOfAgentsToLCAgents
+from DQNAgent import copyDQNAgentsWithoutModels
+from JudgmentUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState
 import time
 import numpy as np
 from nn_config import POINT_NORMALIZATION
@@ -289,13 +290,13 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,convertListOfAgentsToLCAgents(turn_order),np.zeros(52,dtype=int))
+            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype=int))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
                 srs.card_stack = []
                 srs.highest_adjusted_val = 0
-                srs.agents = convertListOfAgentsToLCAgents(turn_order)
+                srs.agents = copyDQNAgentsWithoutModels(turn_order)
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
