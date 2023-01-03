@@ -158,13 +158,13 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,turn_order,np.zeros(52,dtype=int))
+            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype=int))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
                 srs.card_stack = []
                 srs.highest_adjusted_val = 0
-                srs.agents = turn_order
+                srs.agents = copyDQNAgentsWithoutModels(turn_order)
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
@@ -215,7 +215,8 @@ class JudgmentGame(object):
             #Add associated point changes to each bet and action input state:
             for point_change, agent in zip(point_changes,self.agents):
                 avg_point_change_of_others = (sum(point_changes)-point_change)/3
-                point_change_difference = (point_change-avg_point_change_of_others)/POINT_NORMALIZATION
+                #normalize this by the max realistic value of points, because activation function is tanh and thus [-1,1]
+                point_change_difference = (point_change-avg_point_change_of_others)/130
 
                 bet_state = bet_state_input_data[agent.id]
                 bet_train_data.append((bet_state,point_change_difference))
@@ -349,7 +350,8 @@ class JudgmentGame(object):
             #Add associated point changes to each bet and action input state:
             for point_change, agent in zip(point_changes,self.agents):
                 avg_point_change_of_others = (sum(point_changes)-point_change)/3
-                point_change_difference = (point_change-avg_point_change_of_others)/POINT_NORMALIZATION
+                #normalize this by the max realistic value of points, because activation function is tanh and thus [-1,1]
+                point_change_difference = (point_change-avg_point_change_of_others)/130
 
                 bet_state = bet_state_input_data[agent.id]
                 bet_sl_data.append((bet_state,point_change_difference))

@@ -54,7 +54,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
 
     [lstm_input for players still to go, 
     [current winner relative points, current winner bet, current winner earned (normalized),
-    one-hot encoding of cards still in game, one-hot encoding of action cards, one-hot encoding of trump suit,
+    {-1,1} binary encoding of cards still in game, one-hot encoding of action card, one-hot encoding of trump suit,
     agent bet, agent percentage of subrounds won, number of cards in hand]]
     """
     next_agent_index = len(srs.card_stack)+1
@@ -88,7 +88,8 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
     for card in agent.hand:
         cards_still_available[card.index] = 0
     cards_still_available[chosen_card.index] = 0 #the card you're about to play can't be played by someone else
-    
+    cards_still_available[cards_still_available==0] = -1 #replace zeros with -1s for training performance
+
     parameter_state[:52] = cards_still_available
 
     #~~~~~~~~~~~~card about to be played information~~~~~~~~~~~~
@@ -115,7 +116,7 @@ def convertSubroundSituationToEvalState(srs, agent, chosen_card):
     used. Otherwise, returns the evaluation state in the following form:
 
     [lstm_input for players still to go, 
-    [one-hot encoding of cards still in game, one-hot encoding of trump suit, value of chosen card, 
+    [{-1,1} binary encoding of cards still in game, one-hot encoding of trump suit, value of chosen card, 
     agent bet, agent percentage of subrounds won, number of cards in hand]]
     """
     next_agent_index = len(srs.card_stack)+1
@@ -142,6 +143,7 @@ def convertSubroundSituationToEvalState(srs, agent, chosen_card):
         for card in agent.hand:
             cards_still_available[card.index] = 0
         cards_still_available[chosen_card.index] = 0 #the card you're about to play can't be played by someone else
+        cards_still_available[cards_still_available==0] = -1 #replace zeros with -1s for training performance
 
         parameter_state[:52] = cards_still_available
         if srs.trump < 4: parameter_state[52+srs.trump] = 1 #if trump is 4, then there is no trump
@@ -162,9 +164,9 @@ def convertBetSituationToBetState(bs, agent, bet):
     Given bet situation, hand, and bet value, outputs a bet state suitable for input into
     the bet Q function. Bet state is of the form:
 
-    [one-hot encoding of hand - bet position - existence of zero bet - % of bets already taken - one-hot encoding of trump - bet amount]
+    [{-1,1} binary encoding of hand - bet position - existence of zero bet - % of bets already taken - one-hot encoding of trump - bet amount]
     """
-    bet_state = np.zeros(60)
+    bet_state = -1*np.ones(60)
     #add cards to bet data point
     for card in agent.hand:
         bet_state[card.index] = 1
@@ -197,9 +199,6 @@ def postProcessTrainData(train_data_list):
     for example_train_data_element in example_train_data:
         new_shape = [batch_size] + list(np.shape(example_train_data_element))
         reformatted_train_data.append(np.zeros((new_shape)))
-
-    print(example_train_data)
-    print(example_train_data_element)
 
     #fill array with data
     for data_type_index in range(len(reformatted_train_data)):

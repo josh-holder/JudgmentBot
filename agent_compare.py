@@ -26,4 +26,6 @@ def compareAgents(agents_to_compare,games_num=1000):
     return avg_scores
 
 if __name__ == "__main__":
-    compareAgents([DQNAgent(0),HumanBetAgent(1),SimpleAgent(2),JudgmentAgent(3)],games_num=100)
+    # compareAgents([DQNAgent(0),HumanBetAgent(1),SimpleAgent(2),JudgmentAgent(3)],games_num=100)
+    compareAgents([DQNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)],games_num=100)
+

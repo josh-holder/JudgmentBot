@@ -69,7 +69,7 @@ def trainEvalFunctionOnExpertAlgorithm(use_old_data=True):
     train_data_inputs = postProcessTrainData(train_data_inputs)
     test_data_inputs = postProcessTrainData(test_data_inputs)
     train_data_outputs = np.array(train_data_outputs)
-    test_data_outputs=np.array(test_data_outputs)
+    test_data_outputs = np.array(test_data_outputs)
 
     model = initEvalModel()
 
@@ -89,47 +89,12 @@ def generateTrainingData(gen_eval_data=True,gen_act_data=True,gen_bet_data=True)
     Generate training data from expert play to train agent action and bet network
     on expert games (eval network should be trained to predict expert games separately)
     """
-    # def playGamesThread(index,training_games):
-    #     game_num = 0
-    #     bet_train_data = []
-    #     action_train_data = []
-
-    #     jg = JudgementGameWDataGen(agents=[HumanBetAgent(0,use_eval_model=True),HumanBetAgent(1,use_eval_model=True),HumanBetAgent(2,use_eval_model=True),HumanBetAgent(3,use_eval_model=True)])
-    #     while game_num < training_games:
-    #         curr_bet_train_data, eval_train_data, curr_action_train_data = jg.playGameAndCollectSLData()
-    #         bet_train_data += curr_bet_train_data
-    #         action_train_data += curr_action_train_data
-
-    #         print(f"Thread {index}, Game {game_num}/{training_games}")
-    #         game_num += 1
-    #         jg.resetGame()
-
-    #     bet_data_from_cores[index] = bet_train_data
-    #     action_data_from_cores[index] = action_train_data
-
-    # start = time.time()
-    
-    # bet_data_from_cores = [0,0,0,0]
-    # action_data_from_cores = [0,0,0,0]
-
-    # threads = []
-    # for thread_num in range(2):
-    #     process = Thread(target=playGamesThread, args=[thread_num,10])
-    #     process.start()
-    #     threads.append(process)
-    # print(f"spawned threads in {time.time()-start} seconds")
-    # for thread in threads:
-    #     thread.join()
-    #     print(f"Generated data in {time.time()-start} seconds")
-    # print(len(bet_data_from_cores[0]))
-    # print(len(bet_data_from_cores[1]))
-    
     start = time.time()
     game_num = 0
     bet_train_data = []
     action_train_data = []
     eval_train_data = []
-    training_games = 10
+    training_games = 1000
     jg = JudgmentGame(agents=[HumanBetAgent(0,use_eval_model=True),HumanBetAgent(1,use_eval_model=True),HumanBetAgent(2,use_eval_model=True),HumanBetAgent(3,use_eval_model=True)])
     while game_num < training_games:    
         curr_bet_train_data, curr_eval_train_data, curr_action_train_data = jg.playGameAndCollectSLData()
@@ -237,7 +202,7 @@ def trainBetModelOnExpertData(epochs=250,batch_size=128):
     model.save(bet_model_path)
 
 if __name__ == "__main__":
-    # trainEvalFunctionOnExpertAlgorithm(use_old_data=False)\with open(eval_data_path, 'rb') as f:
-    # generateTrainingData()
+    trainEvalFunctionOnExpertAlgorithm(use_old_data=False)
+    generateTrainingData(gen_eval_data=False)
     trainBetModelOnExpertData(batch_size=256)
     trainActionModelOnExpertData(batch_size=256)

@@ -15,7 +15,7 @@ def initBetModel(layer_sizes=[48,48,24]):
     for i,layer in enumerate(layer_sizes):
         MLP_layer = layers.Dense(layer,activation="relu")(input_layer)
         if i % 2 == 0:
-            adjust_layer = layers.Dropout(0.2)(MLP_layer)
+            adjust_layer = layers.Dropout(0.5)(MLP_layer)
         else:
             adjust_layer = layers.BatchNormalization()(MLP_layer)
 
@@ -39,8 +39,8 @@ def initEvalModel(layer_sizes=[48,24,12]):
         - Player bet
         - Player earned (normalized)
         - Suits remaining (4 binary values)
-    - Cards still possible to play (one-hot encoding with 52 binary values)
-    - Trump suit (4 binary values, also one-hot encoding)
+    - Cards still possible to play (52 binary values, either -1 or 1)
+    - Trump suit (4 binary values, one-hot encoding)
     - Value of card to play, representing action (0 if off-suit, 1-13 if secondary suit, 14-26 if trump suit)
     - Agent bet (normalized to 13)
     - Agent subrounds already won (normalized to 13)
@@ -62,7 +62,7 @@ def initEvalModel(layer_sizes=[48,24,12]):
     for i,layer in enumerate(layer_sizes):
         MLP_layer = layers.Dense(layer,activation="relu")(input_layer)
         if i % 2 == 0:
-            adjust_layer = layers.Dropout(0.2)(MLP_layer)
+            adjust_layer = layers.Dropout(0.5)(MLP_layer)
         else:
             adjust_layer = layers.BatchNormalization()(MLP_layer)
 
@@ -77,7 +77,7 @@ def initEvalModel(layer_sizes=[48,24,12]):
 
     return model
 
-def initActionModel(layer_sizes=[64,64,48,24,12]):
+def initActionModel(layer_sizes=[128,64,32,16]):
     """
     Model which, given a playing situation, outputs the expected values of all the cards.
 
@@ -91,7 +91,7 @@ def initActionModel(layer_sizes=[64,64,48,24,12]):
         - Player relative points
         - Player bet
         - Player earned (normalized)
-    - Cards still possible to play (one-hot encoding with 52 binary values)
+    - Cards still possible to play (52 binary values, either -1 or 1)
     - Card that you're about to play (one-hot encoding with 52 binary values)
     - Trump suit (4 binary values, also one-hot encoding)
     - Agent bet (normalized to 13)
@@ -122,7 +122,7 @@ def initActionModel(layer_sizes=[64,64,48,24,12]):
     for i,layer in enumerate(layer_sizes):
         MLP_layer = layers.Dense(layer,activation="relu")(input_layer)
         if i % 2 == 0:
-            adjust_layer = layers.Dropout(0.1)(MLP_layer)
+            adjust_layer = layers.Dropout(0.5)(MLP_layer)
         else:
             adjust_layer = layers.BatchNormalization()(MLP_layer)
 

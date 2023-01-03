@@ -8,6 +8,8 @@ import numpy as np
 import random
 import keras
 import time
+from matplotlib import pyplot as plt
+import tensorflow as tf
 
 from JudgmentUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
 from JudgmentGame import JudgmentGame
@@ -24,7 +26,7 @@ def _build_parser():
         '-r','--run_name',
         help="Will name the output directory for the results of the run",
         type=str,
-        default="run",
+        default="run1",
     )
 
     parser.add_argument(
@@ -55,34 +57,37 @@ def loadExperienceData(run_name):
     Loads exists, or creates new experience data to use for experience replay.
     """
     folder_name = "dqn_experience_data"
-    run_folder_path = os.path.join(os.getcwd(),folder_name,run_name)
+    run_folder_path = os.path.join(os.getcwd(),run_name,folder_name)
     
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
 
-    bet_mem_path = os.path.join(os.getcwd(),folder_name,run_name,"bet_experience_data.pkl")
+    bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
     if os.path.exists(bet_mem_path):
         print("Loading existing bet experience data.")
         with open(bet_mem_path,'rb') as f:
             bet_experience_data = pickle.load(f)
+        print(f"Done loading {len(bet_experience_data)} items of bet experience data")
     else:
         print("Previous bet experience data not found: generating empty memory list.")
         bet_experience_data = deque(maxlen=BET_EXPERIENCE_BANK_SIZE)
 
-    eval_mem_path = os.path.join(os.getcwd(),folder_name,run_name,"eval_experience_data.pkl")
+    eval_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"eval_experience_data.pkl")
     if os.path.exists(eval_mem_path):
         print("Loading existing eval experience data.")
         with open(eval_mem_path,'rb') as f:
             eval_experience_data = pickle.load(f)
+        print(f"Done loading {len(eval_experience_data)} items of eval experience data")
     else:
         print("Previous eval experience data not found: generating empty memory list.")
         eval_experience_data = deque(maxlen=EVAL_EXPERIENCE_BANK_SIZE)
     
-    act_mem_path = os.path.join(os.getcwd(),folder_name,run_name,"act_experience_data.pkl")
+    act_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"act_experience_data.pkl")
     if os.path.exists(act_mem_path):
         print("Loading existing action experience data.")
         with open(act_mem_path,'rb') as f:
             act_experience_data = pickle.load(f)
+        print(f"Done loading {len(act_experience_data)} items of action experience data")
     else:
         print("Previous action experience data not found: generating empty memory list.")
         act_experience_data = deque(maxlen=ACTION_EXPERIENCE_BANK_SIZE)
@@ -92,20 +97,31 @@ def loadExperienceData(run_name):
 def saveExperienceData(run_name,bet_exp_data,eval_exp_data,state_transition_bank):
     folder_name = "dqn_experience_data"
 
-    bet_mem_path = os.path.join(os.getcwd(),folder_name,run_name,"bet_experience_data.pkl")
+    bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
     with open(bet_mem_path,'wb') as f:
         print(f"Saving {len(bet_exp_data)} items of bet experience data in {bet_mem_path}")
         pickle.dump(bet_exp_data,f)
     
-    eval_mem_path = os.path.join(os.getcwd(),folder_name,run_name,"eval_experience_data.pkl")
+    eval_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"eval_experience_data.pkl")
     with open(eval_mem_path,'wb') as f:
         print(f"Saving {len(eval_exp_data)} items of eval experience data in {eval_mem_path}")
         pickle.dump(eval_exp_data,f)
     
-    act_mem_path = os.path.join(os.getcwd(),folder_name,run_name,"act_experience_data.pkl")
+    act_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"act_experience_data.pkl")
     with open(act_mem_path,'wb') as f:
         print(f"Saving {len(state_transition_bank)} items of state transition data in {act_mem_path}")
         pickle.dump(state_transition_bank,f)
+
+def saveModels(run_name, bet_model, eval_model, act_model):
+    bet_model_path = os.path.join(os.getcwd(),run_name,"best_bet_model")
+    bet_model.save(bet_model_path)
+
+    eval_model_path = os.path.join(os.getcwd(),run_name,"best_eval_model")
+    eval_model.save(eval_model_path)
+
+    act_model_path = os.path.join(os.getcwd(),run_name,"best_act_model")
+    act_model.save(act_model_path)
+    print("Saved bet, eval, and action models.")
 
 def convertMiniBatchToStateRewardPair(state_transition_minibatch, action_model, eval_model):
     """
@@ -197,7 +213,12 @@ def trainDQNAgent():
 
     print(f"Sufficient training data is available ({len(state_transition_bank)} state transition, {len(eval_exp_data)} eval, {len(bet_exp_data)} bet)")
 
-    saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
+    performance_against_humanbet = [25] #conservative estimate for how much the base expert-trained agent beats HumanBet by
+    times_to_achieve_performances = [0]
+
+    training_start = time.time()
+
+    beat_humanbet_by = 0 #track how much the previous agent beat the HumanBetAgent by to determine if the nnew agent is better
 
     while True:
         new_state_transitions = 0
@@ -233,8 +254,7 @@ def trainDQNAgent():
             minibatch_inputs = postProcessTrainData(minibatch_inputs)
             minibatch_outputs = np.array(minibatch_outputs)
 
-            fit = action_model.fit(minibatch_inputs, minibatch_outputs, epochs=RETRAIN_EPOCHS, batch_size=32)
-            print(f"loss {fit.history}")
+            fit = action_model.fit(minibatch_inputs, minibatch_outputs, epochs=RETRAIN_EPOCHS, batch_size=32, verbose = 0)
 
             jg.resetGame()
 
@@ -244,6 +264,7 @@ def trainDQNAgent():
 
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
+        #~~~~~~~~~~~~~~~~~~~~~~~TRAINING BET AND EVAL NETWORKS ON NEW EXPERIENCE DATA~~~~~~~~~~~~~~~~~~~``
         print(f">{num_new_transitions_before_eval_bet_training} new transitions generated, so retraining bet and evaluation networks on new data.")
 
         bet_data_inputs = []
@@ -255,7 +276,9 @@ def trainDQNAgent():
         bet_data_inputs = postProcessBetTrainData(bet_data_inputs)
         bet_data_outputs = np.array(bet_data_outputs)
         
-        bet_model.fit(bet_data_inputs,bet_data_outputs,epochs=128,batch_size=256)
+        print("Retraining bet network...")
+        bet_model.fit(bet_data_inputs,bet_data_outputs,epochs=128,batch_size=256,verbose=0)
+        print("Done retraining bet network.")
 
         eval_data_inputs = []
         eval_data_outputs = []
@@ -266,13 +289,16 @@ def trainDQNAgent():
         eval_data_inputs = postProcessTrainData(eval_data_inputs)
         eval_data_outputs = np.array(eval_data_outputs)
 
-        eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=128,batch_size=256)
+        print("Retraining eval network...")
+        eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=128,batch_size=256,verbose=0)
+        print("Done retraining eval network.")
 
         #Updating action and evaluation models for agents
         for agent in jg.agents:
             agent.bet_model = bet_model
             agent.eval_model = eval_model
 
+        #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
         print("Bet and Evaluation models retrained on new data: evaluating performance.")
 
         agents_to_compare = [DQNAgent(0,load_models=False),DQNAgent(1,load_models=False),DQNAgent(2,load_models=False),DQNAgent(3,load_models=False)]
@@ -286,27 +312,38 @@ def trainDQNAgent():
             agent.eval_model = old_eval_model
 
         print("Performance against previous agent iteration:")
-        compareAgents(agents_to_compare,games_num=5)
+        avg_scores_against_prev_agents = compareAgents(agents_to_compare,games_num=5)
+        new_agent_score_against_prev = avg_scores_against_prev_agents[0]
+        prev_agent_score_against_new = sum(avg_scores_against_prev_agents[1:])/len(avg_scores_against_prev_agents[1:])
+        print(f"New Agent average score: {new_agent_score_against_prev}, previous agent average score: {prev_agent_score_against_new}")
 
-        print("Performance against SimpleAgents:")
-        compareAgents([agents_to_compare[0],HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)],games_num=5)
+        print("Performance against HumanBetAgents:")
+        avg_scores_against_humanbet_agents = compareAgents([agents_to_compare[0],HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)],games_num=5)
+        new_agent_score_against_humanbet = avg_scores_against_humanbet_agents[0]
+        humanbet_agent_score_against_new = sum(avg_scores_against_humanbet_agents[1:])/len(avg_scores_against_humanbet_agents[1:])
+        print(f"New Agent average score: {new_agent_score_against_humanbet}, HumanBet agent average score: {humanbet_agent_score_against_new}")
+
+        if (new_agent_score_against_prev > prev_agent_score_against_new) or (new_agent_score_against_humanbet > beat_humanbet_by):
+            print("New agent improves on old agent, so saving it.")
+            saveModels(args.run_name, bet_model, eval_model, action_model)
+            beat_humanbet_by = new_agent_score_against_humanbet - humanbet_agent_score_against_new
+        else:
+            print("New agent does not improve on old agent, so does not save the model.")
+            bet_model = old_bet_model
+            eval_model = old_eval_model
+            action_model = old_action_model
 
         print(f"Evaluation complete: generating {num_new_transitions_before_eval_bet_training} new state transitions.")
 
+        #save data for progress plots
+        performance_against_humanbet.append(new_agent_score_against_humanbet-humanbet_agent_score_against_new)
+        times_to_achieve_performances.append((time.time()-training_start)/60)
+        plt.plot(times_to_achieve_performances,performance_against_humanbet)
+        plt.xlabel("Time (min)")
+        plt.ylabel("Difference in average score between new agent and HumanBet agent")
 
-
-    """
-    Full algorithm:
-    - generate at least a baseline amount of data
-    - Loop forever:
-        - play games epsilon random until 25000 state transitions have been generated, minibatches of 32 in between each step
-        - Retrain bet and evaluation network on full amount of data: epochs 50, minibatch 256?
-        - Run new agent for 5 games against all SimpleAgents, determine performance
-        - If agent beats previous average score, keep it. Otherwise, revert back to old.
-    """
-
-    # saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
-
+        progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_over_time.png")
+        plt.savefig(progress_graph_path)
 
 if __name__ == "__main__":
     # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])
