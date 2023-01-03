@@ -215,8 +215,7 @@ class JudgmentGame(object):
             #Add associated point changes to each bet and action input state:
             for point_change, agent in zip(point_changes,self.agents):
                 avg_point_change_of_others = (sum(point_changes)-point_change)/3
-                #normalize this by the max realistic value of points, because activation function is tanh and thus [-1,1]
-                point_change_difference = (point_change-avg_point_change_of_others)/130
+                point_change_difference = (point_change-avg_point_change_of_others)/POINT_NORMALIZATION
 
                 bet_state = bet_state_input_data[agent.id]
                 bet_train_data.append((bet_state,point_change_difference))
@@ -351,7 +350,7 @@ class JudgmentGame(object):
             for point_change, agent in zip(point_changes,self.agents):
                 avg_point_change_of_others = (sum(point_changes)-point_change)/3
                 #normalize this by the max realistic value of points, because activation function is tanh and thus [-1,1]
-                point_change_difference = (point_change-avg_point_change_of_others)/130
+                point_change_difference = (point_change-avg_point_change_of_others)/POINT_NORMALIZATION
 
                 bet_state = bet_state_input_data[agent.id]
                 bet_sl_data.append((bet_state,point_change_difference))

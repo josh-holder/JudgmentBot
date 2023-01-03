@@ -202,7 +202,7 @@ def trainBetModelOnExpertData(epochs=250,batch_size=128):
     model.save(bet_model_path)
 
 if __name__ == "__main__":
-    trainEvalFunctionOnExpertAlgorithm(use_old_data=False)
+    # trainEvalFunctionOnExpertAlgorithm(use_old_data=False)
     generateTrainingData(gen_eval_data=False)
     trainBetModelOnExpertData(batch_size=256)
     trainActionModelOnExpertData(batch_size=256)

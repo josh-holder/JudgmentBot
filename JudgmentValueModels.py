@@ -21,7 +21,8 @@ def initBetModel(layer_sizes=[48,48,24]):
 
         input_layer = adjust_layer
 
-    bet_value = layers.Dense(1,activation="tanh")(input_layer)
+    #linear output
+    bet_value = layers.Dense(1)(input_layer)
 
     model = Model(inputs=param_input,outputs=bet_value)
     model.compile(loss = tf.losses.MeanSquaredError(),
@@ -128,8 +129,8 @@ def initActionModel(layer_sizes=[128,64,32,16]):
 
         input_layer = adjust_layer
 
-    #Predict action value
-    action_value = layers.Dense(1,activation="tanh")(input_layer)
+    #Predict action value, linear output activation function
+    action_value = layers.Dense(1)(input_layer)
 
     model = Model(inputs=[next_players_input,winning_player_input,parameters],outputs=action_value)
     model.compile(loss = tf.losses.MeanSquaredError(),
