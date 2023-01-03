@@ -264,6 +264,8 @@ def trainDQNAgent():
 
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
+        return None
+
         #~~~~~~~~~~~~~~~~~~~~~~~TRAINING BET AND EVAL NETWORKS ON NEW EXPERIENCE DATA~~~~~~~~~~~~~~~~~~~``
         print(f">{num_new_transitions_before_eval_bet_training} new transitions generated, so retraining bet and evaluation networks on new data.")
 
