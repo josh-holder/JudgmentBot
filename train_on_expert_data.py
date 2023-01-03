@@ -24,6 +24,9 @@ def trainEvalFunctionOnExpertAlgorithm(use_old_data=True):
     #~~~~~~~~~~~ LOAD OR GENERATE EVAL TRAINING DATA
     eval_data_path = os.path.join(os.getcwd(),"eval_expert_train_data/eval_expert_train_data.pkl")
     if not use_old_data:
+        if not os.path.exists(eval_data_path):
+            os.mkdir(eval_data_path)
+
         start = time.time()
         eval_train_data = []
 
