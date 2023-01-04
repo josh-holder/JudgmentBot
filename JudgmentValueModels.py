@@ -60,14 +60,12 @@ def initEvalModel(layer_sizes=[48,24,12]):
 
     #Add the specified amount and size of fully connected layers
     input_layer = all_params
-    for i,layer in enumerate(layer_sizes):
+    for layer in layer_sizes:
         MLP_layer = layers.Dense(layer,activation="relu")(input_layer)
-        if i % 2 == 0:
-            adjust_layer = layers.Dropout(0.5)(MLP_layer)
-        else:
-            adjust_layer = layers.BatchNormalization()(MLP_layer)
+        batch_norm_layer = layers.BatchNormalization()(MLP_layer)
+        dropout_layer = layers.Dropout(0.5)(batch_norm_layer)
 
-        input_layer = adjust_layer
+        input_layer = dropout_layer
 
     #Predict percentage win value
     win_value = layers.Dense(1,activation="sigmoid")(input_layer)
@@ -120,14 +118,12 @@ def initActionModel(layer_sizes=[128,64,32,16]):
 
     #Add the specified amount and size of fully connected layers
     input_layer = all_params
-    for i,layer in enumerate(layer_sizes):
+    for layer in layer_sizes:
         MLP_layer = layers.Dense(layer,activation="relu")(input_layer)
-        if i % 2 == 0:
-            adjust_layer = layers.Dropout(0.5)(MLP_layer)
-        else:
-            adjust_layer = layers.BatchNormalization()(MLP_layer)
+        batch_norm_layer = layers.BatchNormalization()(MLP_layer)
+        dropout_layer = layers.Dropout(0.5)(batch_norm_layer)
 
-        input_layer = adjust_layer
+        input_layer = dropout_layer
 
     #Predict action value, linear output activation function
     action_value = layers.Dense(1)(input_layer)
