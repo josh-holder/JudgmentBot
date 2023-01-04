@@ -12,14 +12,12 @@ def initBetModel(layer_sizes=[48,48,24]):
     param_input = Input(60)
 
     input_layer = param_input
-    for i,layer in enumerate(layer_sizes):
+    for layer in layer_sizes:
         MLP_layer = layers.Dense(layer,activation="relu")(input_layer)
-        if i % 2 == 0:
-            adjust_layer = layers.Dropout(0.5)(MLP_layer)
-        else:
-            adjust_layer = layers.BatchNormalization()(MLP_layer)
+        batch_norm_layer = layers.BatchNormalization()(MLP_layer)
+        dropout_layer = layers.Dropout(0.5)(batch_norm_layer)
 
-        input_layer = adjust_layer
+        input_layer = dropout_layer
 
     #linear output
     bet_value = layers.Dense(1)(input_layer)
