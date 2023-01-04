@@ -103,7 +103,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
     parameter_state[108] = agent.bet/13
     parameter_state[109] = agent.subrounds_won/13
     parameter_state[110] = agent.evalSubroundWinChance(srs,chosen_card)
-    parameter_state[111] = srs.hand_size/13
+    parameter_state[111] = srs.hand_size
 
     return [next_agents_series, winning_agent_state, parameter_state]
 
@@ -150,7 +150,7 @@ def convertSubroundSituationToEvalState(srs, agent, chosen_card):
         parameter_state[56] = adjusted_card_val/26
         parameter_state[57] = agent.bet/13
         parameter_state[58] = agent.subrounds_won/13
-        parameter_state[59] = srs.hand_size/13
+        parameter_state[59] = srs.hand_size
 
         #convert to objects with batch size 1 so that it can be fed into neural networks
         # next_agents_series_w_batch1 = np.zeros([1]+list(np.shape(next_agents_series)))
@@ -171,11 +171,11 @@ def convertBetSituationToBetState(bs, agent, bet):
     for card in agent.hand:
         bet_state[card.index] = 1
     bet_state[52] = len(bs.other_bets)
-    bet_state[53] = 1 if 0 in bs.other_bets else -1 #1 if there's been a zero bet
+    bet_state[53] = 1 if 0 in bs.other_bets else 0 #1 if there's been a zero bet
     bet_state[54] = sum(bs.other_bets)/bs.hand_size #sum of previous bets divided by max. Can divide by hand b/c no cards have been played
     if bs.trump < 4: bet_state[55+bs.trump] = 1 #if trump is 4, then there is no trump
 
-    bet_state[59] = bet/13
+    bet_state[59] = bet
 
     return bet_state
 

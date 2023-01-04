@@ -24,8 +24,8 @@ def trainEvalFunctionOnExpertAlgorithm(use_old_data=True):
     #~~~~~~~~~~~ LOAD OR GENERATE EVAL TRAINING DATA
     eval_data_path = os.path.join(os.getcwd(),"eval_expert_train_data/eval_expert_train_data.pkl")
     if not use_old_data:
-        if not os.path.exists(eval_data_path):
-            os.mkdir(eval_data_path)
+        if not os.path.exists(os.path.join(os.getcwd(),"eval_expert_train_data")):
+            os.mkdir(os.path.join(os.getcwd(),"eval_expert_train_data"))
 
         start = time.time()
         eval_train_data = []
@@ -114,6 +114,14 @@ def generateTrainingData(gen_eval_data=True,gen_act_data=True,gen_bet_data=True)
     bet_data_path = os.path.join(os.getcwd(),"bet_expert_train_data/bet_expert_train_data.pkl")
     action_data_path = os.path.join(os.getcwd(),"action_expert_train_data/action_expert_train_data.pkl")
     eval_data_path = os.path.join(os.getcwd(),"eval_expert_train_data/eval_expert_train_data.pkl")
+
+    if not os.path.exists(os.path.join(os.getcwd(),"bet_expert_train_data")):
+        os.mkdir(os.path.join(os.getcwd(),"bet_expert_train_data"))
+    if not os.path.exists(os.path.join(os.getcwd(),"action_expert_train_data")):
+        os.mkdir(os.path.join(os.getcwd(),"action_expert_train_data"))
+    if not os.path.exists(os.path.join(os.getcwd(),"bet_expert_train_data")):
+        os.mkdir(os.path.join(os.getcwd(),"bet_expert_train_data"))
+
     if gen_bet_data:
         with open(bet_data_path,'wb') as f:
             pickle.dump(bet_train_data,f)
