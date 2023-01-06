@@ -1,7 +1,9 @@
 from SimpleAgent import SimpleAgent
 from JudgmentAgent import JudgmentAgent
 from HumanBetAgent import HumanBetAgent
-import random
+from JudgmentUtils import calcSubroundAdjustedValue
+import copy
+
 play_verbose = 0
 
 class HumanAgent(JudgmentAgent):
@@ -27,15 +29,35 @@ class HumanAgent(JudgmentAgent):
         top_player = srs.agents[top_player_index]
         left_player = srs.agents[left_player_index]
         right_player = srs.agents[right_player_index]
+
+        # Determine which card and player are current winning to place asterisk next to them
+        highest_card_val = -1000
+        winning_card = None
+        winning_card_index = None
+        for i, card in enumerate(srs.card_stack):
+            card_val = calcSubroundAdjustedValue(card,srs)
+            if card_val > highest_card_val:
+                highest_card_val = card_val
+                winning_card = card
+                winning_card_index = i
+        
+        top_player_winning_str = ""
+        right_player_winning_str = ""
+        left_player_winning_str = ""
+        if top_player_index == winning_card_index: top_player_winning_str = "*"
+        elif right_player_index == winning_card_index: right_player_winning_str = "*"
+        elif left_player_index == winning_card_index: left_player_winning_str = "*"
+
         print("{: <30}Player {}, {} points".format(" ",top_player.id,top_player.points))
-        print("{: <30}Earned {}/{}".format(" ",top_player.subrounds_won,top_player.bet))
+        print("{: <30}Earned {}{}/{}".format(" ",top_player_winning_str,top_player.subrounds_won,top_player.bet))
         print(" ")
         print("{: <30}_______________________".format(" "))
         print("{: <30}|Cards in play:       |".format(" "))
         for line_num in range(4):
             to_print = ""
             if line_num < len(srs.card_stack):
-                center_str = "|{: <21}|      ".format(srs.card_stack[line_num].name.split(": ")[-1])
+                card_winning_str = "*" if winning_card_index == line_num else ""
+                center_str = "|{: <21}|      ".format(srs.card_stack[line_num].name.split(": ")[-1]+card_winning_str)
             else:
                 center_str = "|{: <21}|      ".format("--")
             if line_num == 0:
@@ -43,8 +65,8 @@ class HumanAgent(JudgmentAgent):
                 right_player_text = "{: <30}".format(f"Player {right_player.id}, {right_player.points} points")
                 to_print = left_player_text + center_str +right_player_text
             elif line_num == 1:
-                left_player_text = "{: <30}".format(f"Earned {left_player.subrounds_won}/{left_player.bet}")
-                right_player_text = "{: <30}".format(f"Earned {right_player.subrounds_won}/{right_player.bet}")
+                left_player_text = "{: <30}".format(f"Earned {left_player_winning_str}{left_player.subrounds_won}/{left_player.bet}")
+                right_player_text = "{: <30}".format(f"Earned {right_player_winning_str}{right_player.subrounds_won}/{right_player.bet}")
                 to_print = left_player_text + center_str + right_player_text
             else:
                 to_print = "{: <30}".format(" ") + center_str + "{: <30}".format(" ")
@@ -122,6 +144,9 @@ class HumanAgent(JudgmentAgent):
         suits[trump] = "~"+suits[trump]+"~"
         print("{: <23}{: <23}{: <23}{: <23}".format(suits[0],suits[1],suits[2],suits[3]))
         suit_dict = {0:[],1:[],2:[],3:[]}
+
+        self.hand.sort(key=lambda x: x.suit)
+        self.hand.sort(key=lambda x: x.value)
 
         for i, card in enumerate(self.hand):
             index = str(i) if card in self.available_cards else "X"

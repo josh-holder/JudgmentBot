@@ -52,14 +52,16 @@ def _build_parser():
 
     return parser
 
-def loadExperienceData(run_name, folder_name="dqn_experience_data"):
+def loadExperienceData(run_name, folder_name='dqn_experience_data'):
     """
     Loads exists, or creates new experience data to use for experience replay.
     """
-    run_folder_path = os.path.join(os.getcwd(),run_name,folder_name)
-    
+    run_folder_path = os.path.join(os.getcwd(),run_name)
+    dqnexp_folder_path = os.path.join(run_folder_path,folder_name)
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
+    if not os.path.exists(dqnexp_folder_path):
+        os.mkdir(dqnexp_folder_path)
 
     bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
     if os.path.exists(bet_mem_path):
@@ -216,6 +218,8 @@ def trainDQNAgent():
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
     print(f"Sufficient training data is available ({len(state_transition_bank)} state transition, {len(eval_exp_data)} eval, {len(bet_exp_data)} bet)")
+    if need_to_generate_init_data:
+        saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
     performance_against_humanbet = [25] #conservative estimate for how much the base expert-trained agent beats HumanBet by
     times_to_achieve_performances = [0]
