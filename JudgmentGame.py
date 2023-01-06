@@ -89,7 +89,7 @@ class JudgmentGame(object):
                     for agent in self.agents:
                         try:
                             agent.displayTable(srs)
-                            print(f"Player {self.agents[winning_agent_ind].id} won trick with {srs.card_stack[winning_agent_ind].name}")
+                            print(f"Player {turn_order[winning_agent_ind].id} won trick with {srs.card_stack[winning_agent_ind].name}")
                             input("Press any key to continue")
                         #If agent doesn't have a way to print the table (i.e. is not the Human player)
                         except AttributeError:
@@ -196,7 +196,7 @@ class JudgmentGame(object):
                     for agent in self.agents:
                         try:
                             agent.displayTable(srs)
-                            print(f"Player {winning_agent_id} won trick with {srs.card_stack[winning_agent_ind].name}")
+                            print(f"Player {turn_order[winning_agent_ind].id} won trick with {srs.card_stack[winning_agent_ind].name}")
                             input("Press any key to continue")
                         #If agent doesn't have a way to print the table (i.e. is not the Human player)
                         except AttributeError:
@@ -330,7 +330,7 @@ class JudgmentGame(object):
                     for agent in self.agents:
                         try:
                             agent.displayTable(srs)
-                            print(f"Player {winning_agent_id} won trick with {srs.card_stack[winning_agent_ind].name}")
+                            print(f"Player {turn_order[winning_agent_ind].id} won trick with {srs.card_stack[winning_agent_ind].name}")
                             input("Press any key to continue")
                         #If agent doesn't have a way to print the table (i.e. is not the Human player)
                         except AttributeError:
