@@ -4,9 +4,7 @@ Initialize bet, evaluation, and model value functions based on supervised learni
 from JudgmentGame import JudgmentGame
 from JudgmentAgent import JudgmentAgent
 from JudgmentValueModels import initBetModel, initActionModel, initEvalModel
-from deck_of_cards import DeckOfCards
 from nn_config import POINT_NORMALIZATION
-from Situations import BetSituation, SubroundSituation
 import numpy as np
 from HumanBetAgent import HumanBetAgent
 import os

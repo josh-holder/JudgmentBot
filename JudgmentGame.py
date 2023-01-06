@@ -1,5 +1,5 @@
 from JudgmentAgent import JudgmentAgent
-from deck_of_cards import DeckOfCards
+from DeckOfCards import DeckOfCards
 from Situations import BetSituation, SubroundSituation
 from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent

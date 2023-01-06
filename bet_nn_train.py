@@ -54,14 +54,8 @@ if __name__ == "__main__":
         model = tf.keras.models.Sequential([
             keras.Input(shape=(56)),
             layers.Dense(32,activation='relu'),
-            layers.BatchNormalization(),
-            layers.Dropout(0.5),
             layers.Dense(16,activation='relu'),
-            layers.BatchNormalization(),
-            layers.Dropout(0.5),
             layers.Dense(16,activation='relu'),
-            layers.BatchNormalization(),
-            layers.Dropout(0.5),
             layers.Dense(1),
         ])
         model.compile(loss = tf.losses.MeanSquaredError(),
@@ -74,7 +68,7 @@ if __name__ == "__main__":
     train_in = prepared_data_in[:split_idx,:]; test_in = prepared_data_in[split_idx:,:];
     train_out = prepared_data_out[:split_idx,:].flatten(); test_out = prepared_data_out[split_idx:,:].flatten();
 
-    model.fit(train_in,train_out,epochs=50,batch_size=50)
+    model.fit(train_in,train_out,epochs=250,batch_size=64)
     model.evaluate(test_in, test_out, verbose=2)
 
     model.save(model_path)
