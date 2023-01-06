@@ -4,7 +4,7 @@ from Situations import BetSituation, SubroundSituation
 from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent
 from HumanBetAgent import HumanBetAgent
-from DQNAgent import copyDQNAgentsWithoutModels
+from DQNAgent import copyDQNAgentsWithoutModels, DQNAgent
 from JudgmentUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState
 import time
 import numpy as np
@@ -414,5 +414,5 @@ if __name__ == "__main__":
 
     # print("Final Scores: {}".format([score for score in scores]))
 
-    jg = JudgmentGame(game_verbose=1,agents=[HumanBetAgent(0),SimpleAgent(1),SimpleAgent(2),SimpleAgent(3)])
+    jg = JudgmentGame(game_verbose=1,agents=[DQNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
     jg.playGame()
