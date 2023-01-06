@@ -177,7 +177,7 @@ def trainDQNAgent():
     parser = _build_parser()
     args = parser.parse_args()
 
-    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData(args.run_name)
+    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData("",folder_name="experience_data_w_expert_model")
 
     jg = JudgmentGame(agents=[DQNAgent(0,epsilon=0.15, load_models=False),DQNAgent(1,epsilon=0.15, load_models=False),DQNAgent(2,epsilon=0.15, load_models=False),DQNAgent(3,epsilon=0.15, load_models=False)])
 
@@ -213,6 +213,9 @@ def trainDQNAgent():
         print(f"Bet: {len(bet_exp_data)}/{BET_EXPERIENCE_BANK_SIZE/4}, Eval: {len(eval_exp_data)}/{EVAL_EXPERIENCE_BANK_SIZE/4}, Act: {len(state_transition_bank)}/{ACTION_EXPERIENCE_BANK_SIZE/4}",end='\r')
 
         jg.resetGame()
+
+    if need_to_generate_init_data:
+        saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
     print(f"Sufficient training data is available ({len(state_transition_bank)} state transition, {len(eval_exp_data)} eval, {len(bet_exp_data)} bet)")
     if need_to_generate_init_data:
