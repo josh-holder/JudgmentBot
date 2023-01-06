@@ -52,15 +52,16 @@ def _build_parser():
 
     return parser
 
-def loadExperienceData(run_name):
+def loadExperienceData(run_name, folder_name='dqn_experience_data'):
     """
     Loads exists, or creates new experience data to use for experience replay.
     """
-    folder_name = "dqn_experience_data"
-    run_folder_path = os.path.join(os.getcwd(),run_name,folder_name)
-    
+    run_folder_path = os.path.join(os.getcwd(),run_name)
+    dqnexp_folder_path = os.path.join(run_folder_path,folder_name)
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
+    if not os.path.exists(dqnexp_folder_path):
+        os.mkdir(dqnexp_folder_path)
 
     bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
     if os.path.exists(bet_mem_path):
@@ -198,8 +199,10 @@ def trainDQNAgent():
     #Wait until all experience banks are at least 1/4 full to start learning:
     # while len(state_transition_bank) < 250:
     print("Generating initial amount of training data...")
+    need_to_generate_init_data = False
     while len(bet_exp_data)<BET_EXPERIENCE_BANK_SIZE/4 or len(eval_exp_data)<EVAL_EXPERIENCE_BANK_SIZE/4 \
         or len(state_transition_bank)<ACTION_EXPERIENCE_BANK_SIZE/4:
+        need_to_generate_init_data = True
         bet_data, eval_data, state_transitions = jg.playGameAndTrackStateTransitions()
 
         #add to existing bet_exp_data bank
@@ -212,6 +215,8 @@ def trainDQNAgent():
         jg.resetGame()
 
     print(f"Sufficient training data is available ({len(state_transition_bank)} state transition, {len(eval_exp_data)} eval, {len(bet_exp_data)} bet)")
+    if need_to_generate_init_data:
+        saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
     performance_against_humanbet = [25] #conservative estimate for how much the base expert-trained agent beats HumanBet by
     times_to_achieve_performances = [0]
@@ -263,8 +268,6 @@ def trainDQNAgent():
                 agent.action_model = action_model
 
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
-
-        return None
 
         #~~~~~~~~~~~~~~~~~~~~~~~TRAINING BET AND EVAL NETWORKS ON NEW EXPERIENCE DATA~~~~~~~~~~~~~~~~~~~``
         print(f">{num_new_transitions_before_eval_bet_training} new transitions generated, so retraining bet and evaluation networks on new data.")
