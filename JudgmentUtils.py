@@ -72,7 +72,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
         #determine currently winning player
         for i,card in enumerate(srs.card_stack):
             if calcSubroundAdjustedValue(card,srs) == srs.highest_adjusted_val:
-                winning_agent = srs.agents[i]
+                winning_agent = srs.agents[i] #TODO: winning agent referenced before assignemnt ???
         
         #~~~~~~~~~winning agent information~~~~~~~~~~~~
         winning_agent_state[0] = (winning_agent.points - agent.points)/POINT_NORMALIZATION
@@ -103,7 +103,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
     parameter_state[108] = agent.bet/13
     parameter_state[109] = agent.subrounds_won/13
     parameter_state[110] = agent.evalSubroundWinChance(srs,chosen_card)
-    parameter_state[111] = srs.hand_size
+    parameter_state[111] = srs.hand_size/13
 
     return [next_agents_series, winning_agent_state, parameter_state]
 
@@ -150,7 +150,7 @@ def convertSubroundSituationToEvalState(srs, agent, chosen_card):
         parameter_state[56] = adjusted_card_val/26
         parameter_state[57] = agent.bet/13
         parameter_state[58] = agent.subrounds_won/13
-        parameter_state[59] = srs.hand_size
+        parameter_state[59] = srs.hand_size/13
 
         #convert to objects with batch size 1 so that it can be fed into neural networks
         # next_agents_series_w_batch1 = np.zeros([1]+list(np.shape(next_agents_series)))

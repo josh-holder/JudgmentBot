@@ -10,7 +10,7 @@ import keras
 import time
 from matplotlib import pyplot as plt
 import tensorflow as tf
-
+from copy import deepcopy
 from JudgmentUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
 from JudgmentGame import JudgmentGame
 from DQNAgent import DQNAgent
@@ -98,6 +98,10 @@ def loadExperienceData(run_name, folder_name='dqn_experience_data'):
 def saveExperienceData(run_name,bet_exp_data,eval_exp_data,state_transition_bank):
     folder_name = "dqn_experience_data"
 
+    folder_path = os.path.join(os.getcwd(), run_name, folder_name)
+    if not os.path.exists(folder_path):
+        os.mkdir(folder_path)
+
     bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
     with open(bet_mem_path,'wb') as f:
         print(f"Saving {len(bet_exp_data)} items of bet experience data in {bet_mem_path}")
@@ -142,7 +146,7 @@ def convertMiniBatchToStateRewardPair(state_transition_minibatch, action_model, 
         srs_after = state_transition[2]
 
         #Determine current agent, set evaluation models
-        curr_agent = srs_before.agents[len(srs_before.card_stack)]
+        curr_agent = deepcopy(srs_before.agents[len(srs_before.card_stack)])
         curr_agent.eval_model = eval_model
 
         action_state = convertSubroundSituationToActionState(state_transition[0],curr_agent,card)
@@ -151,7 +155,8 @@ def convertMiniBatchToStateRewardPair(state_transition_minibatch, action_model, 
         if type(srs_after) == type(1.0): reward = srs_after
         #Otherwise, the reward is the maximum Q-value of the next state.
         else:
-            next_agent = srs_after.agents[len(srs_after.card_stack)]
+            #needs to be a deep copy or else you'll permanently attach an action and bet model to the state_transition bank
+            next_agent = deepcopy(srs_after.agents[len(srs_after.card_stack)])
             next_agent.action_model = action_model
             next_agent.eval_model = eval_model
 
@@ -177,7 +182,11 @@ def trainDQNAgent():
     parser = _build_parser()
     args = parser.parse_args()
 
-    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData("",folder_name="experience_data_w_expert_model")
+    run_folder_path = os.path.join(os.getcwd(),args.run_name)
+    if not os.path.exists(run_folder_path):
+        os.mkdir(run_folder_path)
+
+    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData("",folder_name="standard_bet_expert_exp_data")
 
     jg = JudgmentGame(agents=[DQNAgent(0,epsilon=0.15, load_models=False),DQNAgent(1,epsilon=0.15, load_models=False),DQNAgent(2,epsilon=0.15, load_models=False),DQNAgent(3,epsilon=0.15, load_models=False)])
 
@@ -221,11 +230,10 @@ def trainDQNAgent():
     if need_to_generate_init_data:
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
-    performance_against_humanbet = [25] #conservative estimate for how much the base expert-trained agent beats HumanBet by
-    times_to_achieve_performances = [0]
+    performance_against_humanbet = []
+    new_states_to_achieve_performances = []
 
-    training_start = time.time()
-
+    new_state_action_pairs_trained_on = 0
     beat_humanbet_by = 0 #track how much the previous agent beat the HumanBetAgent by to determine if the nnew agent is better
 
     while True:
@@ -235,7 +243,9 @@ def trainDQNAgent():
         old_bet_model = bet_model
         old_eval_model = eval_model
 
-        num_new_transitions_before_eval_bet_training = 25000
+        num_new_transitions_before_eval_bet_training = 32000
+        num_new_transitions_before_eval_bet_training = 600
+        act_model_train_start = time.time()
         print(f"Playing games and training action model for {num_new_transitions_before_eval_bet_training} state transitions")
         while new_state_transitions < num_new_transitions_before_eval_bet_training:
             bet_data, eval_data, state_transitions = jg.playGameAndTrackStateTransitions()
@@ -249,6 +259,7 @@ def trainDQNAgent():
             state_transition_bank.extend(state_transitions)
 
             minibatch = random.sample(state_transition_bank,min(RETRAIN_BATCH_SIZE, len(state_transition_bank))) #selects BATCH_SIZE unique states to retrain the NN on
+            new_state_action_pairs_trained_on += min(RETRAIN_BATCH_SIZE, len(state_transition_bank))
 
             #Convert minibatch from (init_srs, action, final_srs) to (action_state, reward) with reward calculated with current action_model
             minibatch = convertMiniBatchToStateRewardPair(minibatch, action_model, eval_model)
@@ -273,7 +284,8 @@ def trainDQNAgent():
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
         #~~~~~~~~~~~~~~~~~~~~~~~TRAINING BET AND EVAL NETWORKS ON NEW EXPERIENCE DATA~~~~~~~~~~~~~~~~~~~``
-        print(f">{num_new_transitions_before_eval_bet_training} new transitions generated, so retraining bet and evaluation networks on new data.")
+        print(f">{num_new_transitions_before_eval_bet_training} new transitions generated in {time.time()-act_model_train_start} sec, so retraining bet and evaluation networks on new data.")
+        bet_eval_train_start = time.time()
 
         bet_data_inputs = []
         bet_data_outputs = []
@@ -292,14 +304,14 @@ def trainDQNAgent():
         eval_data_outputs = []
         for eval_data in eval_exp_data:
             eval_data_inputs.append(eval_data[0])
-            eval_data_outputs.append(int(eval_data[1])) #TODO: convert boolean outputs to int outputs
+            eval_data_outputs.append(eval_data[1])
 
         eval_data_inputs = postProcessTrainData(eval_data_inputs)
         eval_data_outputs = np.array(eval_data_outputs)
 
         print("Retraining eval network...")
         eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=128,batch_size=256,verbose=0)
-        print("Done retraining eval network.")
+        print(f"Done retraining bet and eval network in {time.time()-bet_eval_train_start} seconds.")
 
         #Updating action and evaluation models for agents
         for agent in jg.agents:
@@ -309,26 +321,28 @@ def trainDQNAgent():
         #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
         print("Bet and Evaluation models retrained on new data: evaluating performance.")
 
+        #epsilon is zero for evaluation
         agents_to_compare = [DQNAgent(0,load_models=False),DQNAgent(1,load_models=False),DQNAgent(2,load_models=False),DQNAgent(3,load_models=False)]
-        agents_to_compare[0].action_model = action_model
-        agents_to_compare[0].bet_model = bet_model
-        agents_to_compare[0].eval_model = eval_model
+        for agent in agents_to_compare[0:2]:
+            agent.action_model = action_model
+            agent.bet_model = bet_model
+            agent.eval_model = eval_model
 
-        for agent in agents_to_compare[1:]:
+        for agent in agents_to_compare[2:]:
             agent.action_model = old_action_model
             agent.bet_model = old_bet_model
             agent.eval_model = old_eval_model
 
         print("Performance against previous agent iteration:")
         avg_scores_against_prev_agents = compareAgents(agents_to_compare,games_num=5)
-        new_agent_score_against_prev = avg_scores_against_prev_agents[0]
-        prev_agent_score_against_new = sum(avg_scores_against_prev_agents[1:])/len(avg_scores_against_prev_agents[1:])
+        new_agent_score_against_prev = sum(avg_scores_against_prev_agents[0:2])/len(avg_scores_against_prev_agents[0:2])
+        prev_agent_score_against_new = sum(avg_scores_against_prev_agents[2:])/len(avg_scores_against_prev_agents[2:])
         print(f"New Agent average score: {new_agent_score_against_prev}, previous agent average score: {prev_agent_score_against_new}")
 
         print("Performance against HumanBetAgents:")
-        avg_scores_against_humanbet_agents = compareAgents([agents_to_compare[0],HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)],games_num=5)
-        new_agent_score_against_humanbet = avg_scores_against_humanbet_agents[0]
-        humanbet_agent_score_against_new = sum(avg_scores_against_humanbet_agents[1:])/len(avg_scores_against_humanbet_agents[1:])
+        avg_scores_against_humanbet_agents = compareAgents([agents_to_compare[0],agents_to_compare[1],HumanBetAgent(2),HumanBetAgent(3)],games_num=5)
+        new_agent_score_against_humanbet = sum(avg_scores_against_humanbet_agents[0:2])/len(avg_scores_against_humanbet_agents[0:2])
+        humanbet_agent_score_against_new = sum(avg_scores_against_humanbet_agents[2:])/len(avg_scores_against_humanbet_agents[2:])
         print(f"New Agent average score: {new_agent_score_against_humanbet}, HumanBet agent average score: {humanbet_agent_score_against_new}")
 
         if (new_agent_score_against_prev > prev_agent_score_against_new) or (new_agent_score_against_humanbet > beat_humanbet_by):
@@ -345,9 +359,9 @@ def trainDQNAgent():
 
         #save data for progress plots
         performance_against_humanbet.append(new_agent_score_against_humanbet-humanbet_agent_score_against_new)
-        times_to_achieve_performances.append((time.time()-training_start)/60)
-        plt.plot(times_to_achieve_performances,performance_against_humanbet)
-        plt.xlabel("Time (min)")
+        new_states_to_achieve_performances.append(new_state_action_pairs_trained_on)
+        plt.plot(new_states_to_achieve_performances,performance_against_humanbet)
+        plt.xlabel("Number of new training examples")
         plt.ylabel("Difference in average score between new agent and HumanBet agent")
 
         progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_over_time.png")

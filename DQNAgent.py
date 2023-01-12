@@ -9,6 +9,7 @@ from tensorflow.keras import Input, Model
 import numpy as np
 import os
 import random
+import copy
 
 def copyDQNAgentsWithoutModels(init_agents):
     """
@@ -19,10 +20,10 @@ def copyDQNAgentsWithoutModels(init_agents):
     for init_agent in init_agents:
         new_agent = DQNAgent(init_agent.id,load_models=False)
         new_agent.points = init_agent.points
-        new_agent.hand = init_agent.hand
+        new_agent.hand = copy.deepcopy(init_agent.hand)
         new_agent.subrounds_won = init_agent.subrounds_won
         new_agent.bet = init_agent.bet
-        new_agent.visibly_out_of_suit = init_agent.visibly_out_of_suit
+        new_agent.visibly_out_of_suit = copy.copy(init_agent.visibly_out_of_suit)
         new_agent.id = init_agent.id
 
         new_agents.append(new_agent)
