@@ -223,9 +223,6 @@ def trainDQNAgent():
 
         jg.resetGame()
 
-    if need_to_generate_init_data:
-        saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
-
     print(f"Sufficient training data is available ({len(state_transition_bank)} state transition, {len(eval_exp_data)} eval, {len(bet_exp_data)} bet)")
     if need_to_generate_init_data:
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
@@ -244,7 +241,6 @@ def trainDQNAgent():
         old_eval_model = eval_model
 
         num_new_transitions_before_eval_bet_training = 32000
-        num_new_transitions_before_eval_bet_training = 600
         act_model_train_start = time.time()
         print(f"Playing games and training action model for {num_new_transitions_before_eval_bet_training} state transitions")
         while new_state_transitions < num_new_transitions_before_eval_bet_training:
@@ -321,7 +317,7 @@ def trainDQNAgent():
         #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
         print("Bet and Evaluation models retrained on new data: evaluating performance.")
 
-        #epsilon is zero for evaluation
+        #epsilon is zero for evaluation. Load new models into agents 0 and 1, old models into agents 2 and 3.
         agents_to_compare = [DQNAgent(0,load_models=False),DQNAgent(1,load_models=False),DQNAgent(2,load_models=False),DQNAgent(3,load_models=False)]
         for agent in agents_to_compare[0:2]:
             agent.action_model = action_model

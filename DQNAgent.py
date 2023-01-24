@@ -148,8 +148,6 @@ class DQNAgent(SimpleAgent):
         best_act_val = -np.inf
         for card in self.available_cards:
             act_state = convertSubroundSituationToActionState(srs,self,card)
-            # print(act_state)
-            # print(np.shape(act_state))
 
             act_state = [act_state_component[np.newaxis,:] for act_state_component in act_state]
             act_val = self.action_model(act_state)

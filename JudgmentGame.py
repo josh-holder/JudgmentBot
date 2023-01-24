@@ -59,7 +59,7 @@ class JudgmentGame(object):
 
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,turn_order,np.zeros(52,dtype=int))
+            srs = SubroundSituation(hand_size,[],trump,0,turn_order,np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
@@ -158,7 +158,7 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype=int))
+            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
@@ -290,7 +290,7 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype=int))
+            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
