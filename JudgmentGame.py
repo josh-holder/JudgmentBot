@@ -1,5 +1,5 @@
 from JudgmentAgent import JudgmentAgent
-from DeckOfCards import DeckOfCards
+from deck_of_cards import deck_of_cards
 from Situations import BetSituation, SubroundSituation
 from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent
@@ -40,7 +40,7 @@ class JudgmentGame(object):
 
             if self.game_verbose: print("~~ Round {}, Hand Size {}, Trump {} ~~".format(round,hand_size,SUIT_ORDER[trump]))
 
-            deck = DeckOfCards()
+            deck = deck_of_cards()
 
             #deal cards
             for card_num in range(hand_size):
@@ -59,7 +59,7 @@ class JudgmentGame(object):
 
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,turn_order,np.zeros(52,dtype=int))
+            srs = SubroundSituation(hand_size,[],trump,0,turn_order,np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
@@ -136,7 +136,7 @@ class JudgmentGame(object):
 
             if self.game_verbose: print("~~ Round {}, Hand Size {}, Trump {} ~~".format(round,hand_size,SUIT_ORDER[trump]))
 
-            deck = DeckOfCards()
+            deck = deck_of_cards()
 
             #~~~~~~~~~~~~~~DEAL CARDS~~~~~~~~~~~~~~~
             for card_num in range(hand_size):
@@ -158,7 +158,7 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype=int))
+            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
@@ -184,7 +184,7 @@ class JudgmentGame(object):
 
                 for agent in self.agents:
                     if eval_state_input_data[agent.id] != None:
-                        eval_train_data.append((eval_state_input_data[agent.id],agent.id==winning_agent_id))
+                        eval_train_data.append((eval_state_input_data[agent.id],int(agent.id==winning_agent_id)))
 
                 if self.game_verbose: 
                     print("Subround {}, order is now {} {} {} {} - cards played were:".format(subround,turn_order[0].id,turn_order[1].id,turn_order[2].id,turn_order[3].id))
@@ -267,7 +267,7 @@ class JudgmentGame(object):
 
             if self.game_verbose: print("~~ Round {}, Hand Size {}, Trump {} ~~".format(round,hand_size,SUIT_ORDER[trump]))
 
-            deck = DeckOfCards()
+            deck = deck_of_cards()
 
             #~~~~~~~~~~~~~~DEAL CARDS~~~~~~~~~~~~~~~
             for card_num in range(hand_size):
@@ -290,7 +290,7 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype=int))
+            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
@@ -318,7 +318,7 @@ class JudgmentGame(object):
 
                 for agent in self.agents:
                     if eval_state_input_data[agent.id] != None:
-                        eval_sl_data.append((eval_state_input_data[agent.id],agent.id==winning_agent_id))
+                        eval_sl_data.append((eval_state_input_data[agent.id],int(agent.id==winning_agent_id)))
 
                 if self.game_verbose: 
                     print("Subround {}, order is now {} {} {} {} - cards played were:".format(subround,turn_order[0].id,turn_order[1].id,turn_order[2].id,turn_order[3].id))

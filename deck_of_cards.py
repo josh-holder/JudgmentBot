@@ -130,7 +130,7 @@ class Card(object):
         return 13*self.suit + self.value - 1
 
 
-class DeckOfCards(object):
+class deck_of_cards(object):
 
     SUITS_RANKS = [
         (
@@ -306,8 +306,8 @@ def main():
     Example usage
     :return: None
     """
-    # create an instance of DeckOfCards
-    deck_obj = DeckOfCards()
+    # create an instance of deck_of_cards
+    deck_obj = deck_of_cards()
 
     # add jokers
     deck_obj.add_jokers()

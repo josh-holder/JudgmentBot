@@ -17,4 +17,25 @@ class SubroundSituation(object):
         self.trump = trump
         self.highest_adjusted_val = highest_adjusted_val #Saves computation by saving the highest adjusted value card on the stack
         self.agents = agents #Characteristics of both winning and future agents are useful in determining correct action
-        self.publicly_played_cards = publicly_played_cards #Useful for determining which cards can still be played in the subround
+        self.publicly_played_cards = publicly_played_cards.astype('int8') #Useful for determining which cards can still be played in the subround
+
+    def printSubroundSituation(self):
+        """
+        Effectively achieves the __repr__ function, but not linked to the __repr__
+        method because this representation is clunkier than you might want in many cases.
+        """
+        print("Printing info on SubroundSituation:")
+        SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
+        print(f"Hand size: {self.hand_size}, Trump: {SUIT_ORDER[self.trump]}")
+        print(f"Card stack (with highest adjusted value {self.highest_adjusted_val}):")
+        for card in self.card_stack:
+            print(card.name)
+        print("Publicly played cards:")
+        print(self.publicly_played_cards)
+        print("Agents:")
+        for agent in self.agents:
+            print(f"Agent points {agent.points}, bet progress {agent.subrounds_won}/{agent.bet}, visibly out of suits {agent.visibly_out_of_suit}")
+            print("Agent hand:  ",end="\t")
+            for card in agent.hand:
+                print(card.name,end='\t')
+            print(" ")

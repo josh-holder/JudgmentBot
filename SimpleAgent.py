@@ -1,5 +1,6 @@
 from JudgmentAgent import JudgmentAgent
 import random
+from JudgmentUtils import calcSubroundAdjustedValue
 
 play_verbose = 0
 
@@ -50,24 +51,16 @@ class SimpleAgent(JudgmentAgent):
             #convert card stack to adjusted values of cards
             card_stack_values = []
             for card in srs.card_stack:
-                if card.value == 1: card.value = 14 #make aces high
-                if card.suit == secondary_trump:
-                    card_stack_values.append(card.value)
-                elif card.suit == srs.trump:
-                    card_stack_values.append(card.value+14)
-                else:
-                    card_stack_values.append(0)
+                card_stack_values.append(calcSubroundAdjustedValue(card,srs))
 
             #convert your cards to values
             hand_values = []
             for card in self.available_cards:
-                if card.value == 1: card.value = 14 #make aces high
-                if card.suit == secondary_trump:
-                    hand_values.append(card.value)
-                elif card.suit == srs.trump:
-                    hand_values.append(card.value+14)
+                if calcSubroundAdjustedValue(card,srs) == 0:
+                    #ensure that the algorithm knows that some cards are more valubale than others, even if they're both worth zero this round
+                    hand_values.append(card.value*0.1) 
                 else:
-                    hand_values.append(card.value*0.1)
+                    hand_values.append(calcSubroundAdjustedValue(card,srs))
 
             currently_winning_value = max(card_stack_values)
             high_card_index = hand_values.index(max(hand_values))
@@ -118,10 +111,9 @@ class SimpleAgent(JudgmentAgent):
                 self.printHand()
 
 
-            #if you're still trying to get bets, play your highest card
+            #if you're still trying to get bets, play your highest card (not considering suit)
             hand_values = []
             for card in self.hand:
-                if card.value == 1: card.value = 14 #make aces high
                 hand_values.append(card.value)
 
             high_card_index = hand_values.index(max(hand_values))
