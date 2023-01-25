@@ -204,7 +204,7 @@ class DQNAgent(SimpleAgent):
             elif bet > 4:
                 break
         
-        #If epsilon is not zero, select action epsilon-greedily.
+        #If epsilon is not zero, select bet epsilon-greedily.
         if self.epsilon > 0:
             rand_num = random.random()
             num_valid_bets = len(possible_bets)
@@ -226,7 +226,7 @@ class DQNAgent(SimpleAgent):
             
             raise Exception(f"ERROR: Agent {self.id} failed to make a bet.")
         
-        #If epsilon=0, return greedy action
+        #If epsilon=0, return greedy bet
         else:
             self.bet = best_bet
             return self.bet
