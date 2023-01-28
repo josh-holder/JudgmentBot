@@ -174,12 +174,15 @@ def trainDQNAgent():
     print("Loading models...")
     bet_model_path = os.path.join(os.getcwd(),args.bet_model_path)
     bet_model = keras.models.load_model(bet_model_path)
+    print(f"Loaded bet model from {bet_model_path}")
 
     eval_model_path = os.path.join(os.getcwd(),args.eval_model_path)
     eval_model = keras.models.load_model(eval_model_path)
+    print(f"Loaded eval model from {eval_model_path}")
 
     action_model_path = os.path.join(os.getcwd(),args.action_model_path)
     action_model = keras.models.load_model(action_model_path)
+    print(f"Loaded action model fron {action_model_path}")
 
     for agent in jg.agents:
         agent.action_model = action_model

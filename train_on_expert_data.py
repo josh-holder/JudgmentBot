@@ -211,7 +211,10 @@ def trainBetModelOnExpertData(epochs=250,batch_size=128):
     model.save(bet_model_path)
 
 if __name__ == "__main__":
+    #First train evaluation function on HumanBet games
     trainEvalFunctionOnExpertAlgorithm(use_old_data=False)
+
+    #Generate training data to train the action and bet networks (you need the eval network trained first to get data for the action network)
     generateTrainingData(gen_eval_data=False)
     trainBetModelOnExpertData(batch_size=256)
     trainActionModelOnExpertData(batch_size=256)
