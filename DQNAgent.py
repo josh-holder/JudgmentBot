@@ -165,10 +165,21 @@ class DQNAgent(SimpleAgent):
             old_threshold = 0
 
             for card in self.available_cards:
-                if card == best_card:
-                    threshold += (1-self.epsilon)+self.epsilon/num_valid_actions
-                else:
-                    threshold += self.epsilon/num_valid_actions
+                try:
+                    if card == best_card:
+                        threshold += (1-self.epsilon)+self.epsilon/num_valid_actions
+                    else:
+                        threshold += self.epsilon/num_valid_actions
+                except AttributeError:
+                    print("Prob same error as before")
+                    srs.printSubroundSituation()
+                    print(f"Available cards: {self.available_cards}")
+                    print(f"Current card {card}")
+
+                    if card == best_card:
+                        threshold += (1-self.epsilon)+self.epsilon/num_valid_actions
+                    else:
+                        threshold += self.epsilon/num_valid_actions
 
                 if old_threshold <= rand_num and rand_num <= threshold:
                     return card
