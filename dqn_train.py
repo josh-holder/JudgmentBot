@@ -344,20 +344,19 @@ def trainDQNAgent():
         #save data for progress plots
         performance_against_humanbet.append(new_agent_score_against_humanbet-humanbet_agent_score_against_new)
         new_states_to_achieve_performances.append(new_state_action_pairs_trained_on)
-        plt.plot(new_states_to_achieve_performances,performance_against_humanbet)
+        plt.plot(new_states_to_achieve_performances,performance_against_humanbet, label='vs. HumanBet')
         plt.xlabel("Number of new training examples")
         plt.ylabel("Avg. Score Difference vs. HumanBet")
 
-        humanbet_progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_humanbet_over_time.png")
-        plt.savefig(humanbet_progress_graph_path)
-
         performance_against_prev_agents.append(new_agent_score_against_prev-prev_agent_score_against_new)
-        plt.plot(new_states_to_achieve_performances,performance_against_prev_agents)
+        plt.plot(new_states_to_achieve_performances,performance_against_prev_agents, label='vs. previous iteration')
         plt.xlabel("Number of new training examples")
         plt.ylabel("Avg. Score Diff vs. Prev. Iteration")
 
-        prev_agent_progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_prev_agent_over_time.png")
-        plt.savefig(prev_agent_progress_graph_path)
+        progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_prev_agent_over_time.png")
+        plt.legend()
+        plt.savefig(progress_graph_path)
+        plt.clf()
 
 if __name__ == "__main__":
     # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])
