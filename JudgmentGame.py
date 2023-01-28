@@ -1,11 +1,10 @@
 from JudgmentAgent import JudgmentAgent
 from deck_of_cards import deck_of_cards
-from Situations import BetSituation, SubroundSituation
 from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent
 from HumanBetAgent import HumanBetAgent
 from DQNAgent import copyDQNAgentsWithoutModels, DQNAgent
-from JudgmentUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState
+from JudgmentUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState, BetSituation, SubroundSituation
 import time
 import numpy as np
 from nn_config import POINT_NORMALIZATION
