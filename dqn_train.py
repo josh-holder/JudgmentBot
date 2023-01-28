@@ -14,8 +14,9 @@ from copy import deepcopy
 from JudgmentUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
 from JudgmentGame import JudgmentGame
 from DQNAgent import DQNAgent
-from agent_compare import compareAgents
+from compare_agents import compareAgents
 from HumanBetAgent import HumanBetAgent
+from multiprocessing import cpu_count
 
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
@@ -63,6 +64,16 @@ def loadExperienceData(run_name, folder_name='dqn_experience_data'):
     if not os.path.exists(dqnexp_folder_path):
         os.mkdir(dqnexp_folder_path)
 
+    act_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"act_experience_data.pkl")
+    if os.path.exists(act_mem_path):
+        print("Loading existing action experience data.")
+        with open(act_mem_path,'rb') as f:
+            act_experience_data = pickle.load(f)
+        print(f"Done loading {len(act_experience_data)} items of action experience data")
+    else:
+        print("Previous action experience data not found: generating empty memory list.")
+        act_experience_data = deque(maxlen=ACTION_EXPERIENCE_BANK_SIZE)
+
     bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
     if os.path.exists(bet_mem_path):
         print("Loading existing bet experience data.")
@@ -82,22 +93,10 @@ def loadExperienceData(run_name, folder_name='dqn_experience_data'):
     else:
         print("Previous eval experience data not found: generating empty memory list.")
         eval_experience_data = deque(maxlen=EVAL_EXPERIENCE_BANK_SIZE)
-    
-    act_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"act_experience_data.pkl")
-    if os.path.exists(act_mem_path):
-        print("Loading existing action experience data.")
-        with open(act_mem_path,'rb') as f:
-            act_experience_data = pickle.load(f)
-        print(f"Done loading {len(act_experience_data)} items of action experience data")
-    else:
-        print("Previous action experience data not found: generating empty memory list.")
-        act_experience_data = deque(maxlen=ACTION_EXPERIENCE_BANK_SIZE)
 
     return bet_experience_data, eval_experience_data, act_experience_data
 
-def saveExperienceData(run_name,bet_exp_data,eval_exp_data,state_transition_bank):
-    folder_name = "dqn_experience_data"
-
+def saveExperienceData(run_name,bet_exp_data,eval_exp_data,state_transition_bank,folder_name="dqn_experience_data"):
     folder_path = os.path.join(os.getcwd(), run_name, folder_name)
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
@@ -149,7 +148,7 @@ def convertMiniBatchToStateRewardPair(state_transition_minibatch, action_model, 
         curr_agent = deepcopy(srs_before.agents[len(srs_before.card_stack)])
         curr_agent.eval_model = eval_model
 
-        action_state = convertSubroundSituationToActionState(state_transition[0],curr_agent,card)
+        action_state = convertSubroundSituationToActionState(srs_before,curr_agent,card)
 
         #If srs_after is a float, this is the reward.
         if type(srs_after) == type(1.0): reward = srs_after
@@ -186,9 +185,9 @@ def trainDQNAgent():
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
 
-    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData("",folder_name="standard_bet_expert_exp_data")
+    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData(args.run_name)
 
-    jg = JudgmentGame(agents=[DQNAgent(0,epsilon=0.15, load_models=False),DQNAgent(1,epsilon=0.15, load_models=False),DQNAgent(2,epsilon=0.15, load_models=False),DQNAgent(3,epsilon=0.15, load_models=False)])
+    jg = JudgmentGame(agents=[DQNAgent(0,epsilon=0.3, load_models=False),DQNAgent(1,epsilon=0.3, load_models=False),DQNAgent(2,epsilon=0.3, load_models=False),DQNAgent(3,epsilon=0.3, load_models=False)])
 
     print("Loading models...")
     bet_model_path = os.path.join(os.getcwd(),args.bet_model_path)
@@ -226,8 +225,11 @@ def trainDQNAgent():
     print(f"Sufficient training data is available ({len(state_transition_bank)} state transition, {len(eval_exp_data)} eval, {len(bet_exp_data)} bet)")
     if need_to_generate_init_data:
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
+        # #OPTIONAL: also save in standard_bet_expert_exp_data
+        # saveExperienceData("standard_bet_expert_exp_data", bet_exp_data, eval_exp_data, state_transition_bank, folder_name="")
 
     performance_against_humanbet = []
+    performance_against_prev_agents = []
     new_states_to_achieve_performances = []
 
     new_state_action_pairs_trained_on = 0
@@ -330,13 +332,13 @@ def trainDQNAgent():
             agent.eval_model = old_eval_model
 
         print("Performance against previous agent iteration:")
-        avg_scores_against_prev_agents = compareAgents(agents_to_compare,games_num=5)
+        avg_scores_against_prev_agents = compareAgents(agents_to_compare,games_num=20, cores=cpu_count())
         new_agent_score_against_prev = sum(avg_scores_against_prev_agents[0:2])/len(avg_scores_against_prev_agents[0:2])
         prev_agent_score_against_new = sum(avg_scores_against_prev_agents[2:])/len(avg_scores_against_prev_agents[2:])
         print(f"New Agent average score: {new_agent_score_against_prev}, previous agent average score: {prev_agent_score_against_new}")
 
         print("Performance against HumanBetAgents:")
-        avg_scores_against_humanbet_agents = compareAgents([agents_to_compare[0],agents_to_compare[1],HumanBetAgent(2),HumanBetAgent(3)],games_num=5)
+        avg_scores_against_humanbet_agents = compareAgents([agents_to_compare[0],agents_to_compare[1],HumanBetAgent(2),HumanBetAgent(3)],games_num=20, cores=cpu_count())
         new_agent_score_against_humanbet = sum(avg_scores_against_humanbet_agents[0:2])/len(avg_scores_against_humanbet_agents[0:2])
         humanbet_agent_score_against_new = sum(avg_scores_against_humanbet_agents[2:])/len(avg_scores_against_humanbet_agents[2:])
         print(f"New Agent average score: {new_agent_score_against_humanbet}, HumanBet agent average score: {humanbet_agent_score_against_new}")
@@ -358,13 +360,22 @@ def trainDQNAgent():
         new_states_to_achieve_performances.append(new_state_action_pairs_trained_on)
         plt.plot(new_states_to_achieve_performances,performance_against_humanbet)
         plt.xlabel("Number of new training examples")
-        plt.ylabel("Difference in average score between new agent and HumanBet agent")
+        plt.ylabel("Avg. Score Difference vs. HumanBet")
 
-        progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_over_time.png")
-        plt.savefig(progress_graph_path)
+        humanbet_progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_humanbet_over_time.png")
+        plt.savefig(humanbet_progress_graph_path)
+
+        performance_against_prev_agents.append(new_agent_score_against_prev-prev_agent_score_against_new)
+        plt.plot(new_states_to_achieve_performances,performance_against_prev_agents)
+        plt.xlabel("Number of new training examples")
+        plt.ylabel("Avg. Score Diff vs. Prev. Iteration")
+
+        prev_agent_progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_prev_agent_over_time.png")
+        plt.savefig(prev_agent_progress_graph_path)
 
 if __name__ == "__main__":
     # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])
+    # bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData("run1")
 
     trainDQNAgent()
 
