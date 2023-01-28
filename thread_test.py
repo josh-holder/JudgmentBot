@@ -32,7 +32,7 @@ def joinDataFromThreadedGames(threaded_data_dict):
 
     Want to combine all this data into large lists of the form
 
-    bet_data_list = [bet_data_1_0, bet_data_1_1, ..., bet_data_1_n, bet_data_]
+    bet_data_list = [bet_data_1_0, bet_data_1_1, ..., bet_data_1_n, bet_data_2_0, bet_data_2_1, ... ...]
     """
     master_bet_data_list = []
     master_eval_data_list = []
