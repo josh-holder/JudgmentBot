@@ -33,7 +33,7 @@ def trainEvalFunctionOnExpertAlgorithm(use_old_data=True):
         while len(eval_train_data) < train_data_goal:
             jg = JudgmentGame(agents=[HumanBetAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
 
-            bet_train_data, curr_eval_train_data, action_train_data = jg.playGameAndCollectSLData()
+            bet_train_data, curr_eval_train_data, action_train_data = jg.playGameAndCollectData()
             eval_train_data += curr_eval_train_data
             print(f"Eval training data: {len(eval_train_data)}/{train_data_goal}")
 
@@ -98,7 +98,7 @@ def generateTrainingData(gen_eval_data=True,gen_act_data=True,gen_bet_data=True)
     training_games = 1000
     jg = JudgmentGame(agents=[HumanBetAgent(0,use_eval_model=True),HumanBetAgent(1,use_eval_model=True),HumanBetAgent(2,use_eval_model=True),HumanBetAgent(3,use_eval_model=True)])
     while game_num < training_games:    
-        curr_bet_train_data, curr_eval_train_data, curr_action_train_data = jg.playGameAndCollectSLData()
+        curr_bet_train_data, curr_eval_train_data, curr_action_train_data = jg.playGameAndCollectData()
         if gen_bet_data: bet_train_data += curr_bet_train_data
         if gen_act_data: action_train_data += curr_action_train_data
         if gen_eval_data: eval_train_data += curr_eval_train_data

@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     # jg = JudgmentGame(agents=[DQNAgent(1),DQNAgent(2),DQNAgent(3),DQNAgent(3)])
     # for i in range(9):
-    #     jg.playGameAndCollectSLData()
+    #     jg.playGameAndCollectData()
     #     jg.resetGame()
     
     # print(time.time()-start)

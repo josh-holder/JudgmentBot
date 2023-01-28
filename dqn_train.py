@@ -130,47 +130,29 @@ def saveModels(run_name, bet_model, eval_model, act_model):
 def convertMiniBatchToStateRewardPair(state_transition_minibatch, action_model, eval_model):
     """
     Convert minibatch of state transitions of the form 
-    [(init_srs, card, final_srs),...,(init_srs, card, final_srs)]
+    [(init_srs, card, reward),...,(init_srs, card, reward)]
 
     to the form:
 
     [([action_state],reward),...,([action_state],reward)]
 
     (Later, we can use postProcessTrainData() to convert this to training form)
+
+    (NOTE: 1/27/23 changed to use rewards directly instead of transitions for lower bias from using direct Monte Carlo rewards,
+    lower storage needs, lower computation requirements, etc. Form used to be:
+    [(init_srs, card, final_srs),...,(init_srs, card, final_srs)])
     """
     converted_minibatch = []
     for state_transition in state_transition_minibatch:
         srs_before = state_transition[0]
         card = state_transition[1]
-        srs_after = state_transition[2]
+        reward = state_transition[2]
 
         #Determine current agent, set evaluation models
         curr_agent = deepcopy(srs_before.agents[len(srs_before.card_stack)])
         curr_agent.eval_model = eval_model
 
         action_state = convertSubroundSituationToActionState(srs_before,curr_agent,card)
-
-        #If srs_after is a float, this is the reward.
-        if type(srs_after) == type(1.0): reward = srs_after
-        #Otherwise, the reward is the maximum Q-value of the next state.
-        else:
-            #needs to be a deep copy or else you'll permanently attach an action and bet model to the state_transition bank
-            next_agent = deepcopy(srs_after.agents[len(srs_after.card_stack)])
-            next_agent.action_model = action_model
-            next_agent.eval_model = eval_model
-
-            next_agent.determineCardOptions(srs_after)
-
-            best_act_val = -np.inf
-            for available_card in next_agent.available_cards:
-                next_action_state = convertSubroundSituationToActionState(srs_after,next_agent,available_card)
-
-                next_action_state = [act_state_component[np.newaxis,:] for act_state_component in next_action_state]
-                act_val = float(next_agent.action_model(next_action_state).numpy()[0]) #potentially use squeeze method from stackoverflow
-
-                if act_val > best_act_val:
-                    best_act_val = act_val
-            reward = best_act_val
 
         converted_minibatch.append((action_state, reward))
 
@@ -208,10 +190,11 @@ def trainDQNAgent():
     # while len(state_transition_bank) < 250:
     print("Generating initial amount of training data...")
     need_to_generate_init_data = False
-    while len(bet_exp_data)<BET_EXPERIENCE_BANK_SIZE/4 or len(eval_exp_data)<EVAL_EXPERIENCE_BANK_SIZE/4 \
-        or len(state_transition_bank)<ACTION_EXPERIENCE_BANK_SIZE/4:
+    # while len(bet_exp_data)<BET_EXPERIENCE_BANK_SIZE/4 or len(eval_exp_data)<EVAL_EXPERIENCE_BANK_SIZE/4 \
+    #     or len(state_transition_bank)<ACTION_EXPERIENCE_BANK_SIZE/4:
+    while len(state_transition_bank) < 250:
         need_to_generate_init_data = True
-        bet_data, eval_data, state_transitions = jg.playGameAndTrackStateTransitions()
+        bet_data, eval_data, state_transitions = jg.playGameAndCollectData(use_in_replay_buffer=True)
 
         #add to existing bet_exp_data bank
         bet_exp_data.extend(bet_data)
@@ -226,7 +209,7 @@ def trainDQNAgent():
     if need_to_generate_init_data:
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
         # #OPTIONAL: also save in standard_bet_expert_exp_data
-        # saveExperienceData("standard_bet_expert_exp_data", bet_exp_data, eval_exp_data, state_transition_bank, folder_name="")
+        saveExperienceData("standard_bet_expert_exp_data", bet_exp_data, eval_exp_data, state_transition_bank, folder_name="")
 
     performance_against_humanbet = []
     performance_against_prev_agents = []
@@ -242,11 +225,11 @@ def trainDQNAgent():
         old_bet_model = bet_model
         old_eval_model = eval_model
 
-        num_new_transitions_before_eval_bet_training = 32000
+        num_new_transitions_before_eval_bet_training = 600
         act_model_train_start = time.time()
         print(f"Playing games and training action model for {num_new_transitions_before_eval_bet_training} state transitions")
         while new_state_transitions < num_new_transitions_before_eval_bet_training:
-            bet_data, eval_data, state_transitions = jg.playGameAndTrackStateTransitions()
+            bet_data, eval_data, state_transitions = jg.playGameAndCollectData(use_in_replay_buffer=True)
 
             new_state_transitions += len(state_transitions)
             print(f"State transitions: {new_state_transitions}/{num_new_transitions_before_eval_bet_training}",end='\r')
@@ -259,7 +242,7 @@ def trainDQNAgent():
             minibatch = random.sample(state_transition_bank,min(RETRAIN_BATCH_SIZE, len(state_transition_bank))) #selects BATCH_SIZE unique states to retrain the NN on
             new_state_action_pairs_trained_on += min(RETRAIN_BATCH_SIZE, len(state_transition_bank))
 
-            #Convert minibatch from (init_srs, action, final_srs) to (action_state, reward) with reward calculated with current action_model
+            #Convert minibatch from (init_srs, action, reward) to (action_state, reward)
             minibatch = convertMiniBatchToStateRewardPair(minibatch, action_model, eval_model)
             minibatch_inputs = []
             minibatch_outputs = []
@@ -271,7 +254,7 @@ def trainDQNAgent():
             minibatch_inputs = postProcessTrainData(minibatch_inputs)
             minibatch_outputs = np.array(minibatch_outputs)
 
-            fit = action_model.fit(minibatch_inputs, minibatch_outputs, epochs=RETRAIN_EPOCHS, batch_size=32, verbose = 0)
+            action_model.fit(minibatch_inputs, minibatch_outputs, epochs=RETRAIN_EPOCHS, batch_size=32, verbose = 0)
 
             jg.resetGame()
 

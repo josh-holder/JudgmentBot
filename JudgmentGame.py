@@ -5,7 +5,6 @@ from HumanAgent import HumanAgent
 from HumanBetAgent import HumanBetAgent
 from DQNAgent import copyDQNAgentsWithoutModels, DQNAgent
 from JudgmentUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState, BetSituation, SubroundSituation
-import time
 import numpy as np
 from nn_config import POINT_NORMALIZATION
 from collections import defaultdict as dd
@@ -113,22 +112,47 @@ class JudgmentGame(object):
 
         return self.agents
 
-    def playGameAndCollectSLData(self):
+    def playGameAndCollectData(self, use_in_replay_buffer=False):
         """
         Carries out simulated judgement game.
 
         Carries out judgement game identically to playGame, except it tracks and stores
         training data from the runs to use in supervised learning.
 
-        i.e. stores (action_state, point differential experienced at end of subround.)
+        i.e. stores 
+        (bet_state, point differential experienced at end of subround.)
+        (eval_state, point differential experienced at end of subround.)
+        (action_state, point differential experienced at end of subround.)
+
+        NOTE:
+        If use_in_replay_buffer==True, then stores bet and eval states as normal,
+        but saves action state transition information in the following form:
+
+        (init_SubroundSituation, chosen_action, point differential at the end of subround)
+
+        This is because the win chance evaluation (the output from the eval network) needs
+        to be recalculated with the current version of the eval network - if it's in the replay
+        buffer, the evaluation network used to generate the action state will be different than the
+        current one.
         """
-        bet_train_data = [] #list of tuples with (bet_input_state, bet_value)
-        action_train_data = []
+        bet_train_data = [] #list of tuples with (bet_input_state, point differential at end of round)
         eval_train_data = []
+
+        action_train_data = [] #either list of tuples with (action_input_state, point diff. at end of round),
+        #or (srs_input, chosen_action, point diff. at end of round) in the case of replay buffer data
+
         for round, hand_size in enumerate(self.hand_sizes):
             bet_state_input_data = {} #keys: agent ids. values: bet states, which will later be paired with an average score difference
             eval_state_input_data = {}
+
+            #USED FOR SUPERVISED LEARNING ACTION DATA
             action_state_input_data = dd(list)
+
+            #USED FOR REPLAY BUFFER ACTION DATA
+            #key: agent ids. values: history of SubroundSituations for subround. 
+            subround_situation_transition_data = dd(list)
+            #key: agent ids. values: history of actions for subround. 
+            action_transition_data = dd(list)
 
             self.resetAgents()
             trump = round % len(SUIT_ORDER)
@@ -167,9 +191,13 @@ class JudgmentGame(object):
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
-                    chosen_card = agent.playCard(srs)
+                    if use_in_replay_buffer: subround_situation_transition_data[agent.id].append(deepcopy(srs))
 
-                    action_state_input_data[agent.id].append(convertSubroundSituationToActionState(srs, agent, chosen_card))
+                    chosen_card = agent.playCard(srs)
+                    
+                    if use_in_replay_buffer: action_transition_data[agent.id].append(chosen_card)
+                    else: action_state_input_data[agent.id].append(convertSubroundSituationToActionState(srs, agent, chosen_card))
+
                     eval_state_input_data[agent.id] = convertSubroundSituationToEvalState(srs, agent, chosen_card)
 
                     srs.highest_adjusted_val = max(srs.highest_adjusted_val, calcSubroundAdjustedValue(chosen_card, srs))
@@ -219,8 +247,12 @@ class JudgmentGame(object):
                 bet_state = bet_state_input_data[agent.id]
                 bet_train_data.append((bet_state,point_change_difference))
 
-                for action_state in action_state_input_data[agent.id]:
-                    action_train_data.append((action_state,point_change_difference))
+                if use_in_replay_buffer:
+                    for init_srs, card_played in zip(subround_situation_transition_data[agent.id], action_transition_data[agent.id]):
+                        action_train_data.append((init_srs, card_played, point_change_difference))
+                else:
+                    for action_state in action_state_input_data[agent.id]:
+                        action_train_data.append((action_state,point_change_difference))
 
             if self.game_verbose:
                 for agent in self.agents:
@@ -256,9 +288,10 @@ class JudgmentGame(object):
         eval_sl_data = []
         for round, hand_size in enumerate(self.hand_sizes):
             bet_state_input_data = {} #keys: agent ids. values: bet states, which will later be paired with an average score difference
-            eval_state_input_data = {}
+            eval_state_input_data = {} #keys: agent ids. values: eval states, which will later be paired with an average score difference
             #key: agent ids. values: history of SubroundSituations for subround. 
             subround_situation_transition_data = dd(list)
+            #key: agent ids. values: history of actions for subround. 
             action_transition_data = dd(list)
 
             self.resetAgents()
