@@ -51,6 +51,8 @@ def compareAgents(agents_to_compare,games_num,cores=1):
     print(f"Generated {games_num} games in {time.time()-start} seconds.")
     print("Average Final Scores over {} games: {}".format(games_num,avg_scores))
 
+    return avg_scores
+
 # def compareAgents(agents_to_compare,games_num=1000):
 #     start = time.time()
 #     scores = [0,0,0,0]
