@@ -193,9 +193,8 @@ def trainDQNAgent():
     # while len(state_transition_bank) < 250:
     print("Generating initial amount of training data...")
     need_to_generate_init_data = False
-    # while len(bet_exp_data)<BET_EXPERIENCE_BANK_SIZE/4 or len(eval_exp_data)<EVAL_EXPERIENCE_BANK_SIZE/4 \
-    #     or len(state_transition_bank)<ACTION_EXPERIENCE_BANK_SIZE/4:
-    while len(state_transition_bank) < 250:
+    while len(bet_exp_data)<BET_EXPERIENCE_BANK_SIZE/4 or len(eval_exp_data)<EVAL_EXPERIENCE_BANK_SIZE/4 \
+        or len(state_transition_bank)<ACTION_EXPERIENCE_BANK_SIZE/4:
         need_to_generate_init_data = True
         bet_data, eval_data, state_transitions = jg.playGameAndCollectData(use_in_replay_buffer=True)
 
@@ -228,7 +227,7 @@ def trainDQNAgent():
         old_bet_model = bet_model
         old_eval_model = eval_model
 
-        num_new_transitions_before_eval_bet_training = 600
+        num_new_transitions_before_eval_bet_training = 32000
         act_model_train_start = time.time()
         print(f"Playing games and training action model for {num_new_transitions_before_eval_bet_training} state transitions")
         while new_state_transitions < num_new_transitions_before_eval_bet_training:
