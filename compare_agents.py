@@ -7,6 +7,19 @@ import random
 from copy import deepcopy
 from multiprocessing import Process, cpu_count, Pool, Manager, Queue
 import time
+import argparse
+
+def _build_parser():
+    parser = argparse.ArgumentParser(description='Compare Judgement Agents.')
+
+    parser.add_argument(
+        '-g','--games',
+        help="Number of games to compare for",
+        type=int,
+        default=1000,
+    )
+
+    return parser
 
 def compareAgentsSubprocess(agents_to_compare, games_num, total_scores_queue, id):
     scores = [0,0,0,0]
@@ -54,9 +67,11 @@ def compareAgents(agents_to_compare,games_num,cores=1):
     return avg_scores
 
 if __name__ == "__main__":
+    parser = _build_parser()
+    args = parser.parse_args()
     # compareAgents([DQNAgent(0),HumanBetAgent(1),SimpleAgent(2),JudgmentAgent(3)],games_num=10)
     # compareAgents([DQNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)],games_num=100)
-    compareAgents([DQNAgent(0,bet_model_name="run1_27/best_bet_model",action_model_name="run1_27/best_act_model",eval_model_name="run1_27/best_eval_model"),\
-            DQNAgent(1,bet_model_name="run1_27/best_bet_model",action_model_name="run1_27/best_act_model",eval_model_name="run1_27/best_eval_model"),\
-            DQNAgent(2,bet_model_name="run1/best_bet_model",action_model_name="run1/best_act_model",eval_model_name="run1/best_eval_model"),\
-            DQNAgent(3,bet_model_name="run1/best_bet_model",action_model_name="run1/best_act_model",eval_model_name="run1/best_eval_model")], games_num=100, cores=cpu_count())
+    compareAgents([DQNAgent(0,bet_model_name="run1_28/best_bet_model",action_model_name="run1_28/best_act_model",eval_model_name="run1_28/best_eval_model"),\
+            DQNAgent(1,bet_model_name="run1_28/best_bet_model",action_model_name="run1_28/best_act_model",eval_model_name="run1_28/best_eval_model"),\
+            DQNAgent(2,bet_model_name="run2_8/best_bet_model",action_model_name="run2_8/best_act_model",eval_model_name="run2_8/best_eval_model"),\
+            DQNAgent(3,bet_model_name="run2_8/best_bet_model",action_model_name="run2_8/best_act_model",eval_model_name="run2_8/best_eval_model")], games_num=args.games, cores=cpu_count())

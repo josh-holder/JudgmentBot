@@ -10,13 +10,15 @@ import keras
 import time
 from matplotlib import pyplot as plt
 import tensorflow as tf
-from copy import deepcopy
+from copy import copy, deepcopy
 from JudgmentUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
+from JudgmentValueModels import initActionModel, initBetModel, initEvalModel 
 from JudgmentGame import JudgmentGame
 from DQNAgent import DQNAgent
 from compare_agents import compareAgents
 from HumanBetAgent import HumanBetAgent
 from multiprocessing import cpu_count
+import contextlib
 
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
@@ -167,27 +169,27 @@ def trainDQNAgent():
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
 
-    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData(args.run_name)
+    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData('run2_8')
 
     jg = JudgmentGame(agents=[DQNAgent(0,epsilon=0.3, load_models=False),DQNAgent(1,epsilon=0.3, load_models=False),DQNAgent(2,epsilon=0.3, load_models=False),DQNAgent(3,epsilon=0.3, load_models=False)])
 
     print("Loading models...")
-    bet_model_path = os.path.join(os.getcwd(),args.bet_model_path)
-    bet_model = keras.models.load_model(bet_model_path)
-    print(f"Loaded bet model from {bet_model_path}")
+    curr_bet_model_path = os.path.join(os.getcwd(),args.bet_model_path)
+    curr_bet_model = keras.models.load_model(curr_bet_model_path)
+    print(f"Loaded bet model from {curr_bet_model_path}")
 
-    eval_model_path = os.path.join(os.getcwd(),args.eval_model_path)
-    eval_model = keras.models.load_model(eval_model_path)
-    print(f"Loaded eval model from {eval_model_path}")
+    curr_eval_model_path = os.path.join(os.getcwd(),args.eval_model_path)
+    curr_eval_model = keras.models.load_model(curr_eval_model_path)
+    print(f"Loaded eval model from {curr_eval_model_path}")
 
-    action_model_path = os.path.join(os.getcwd(),args.action_model_path)
-    action_model = keras.models.load_model(action_model_path)
-    print(f"Loaded action model fron {action_model_path}")
+    curr_action_model_path = os.path.join(os.getcwd(),args.action_model_path)
+    curr_action_model = keras.models.load_model(curr_action_model_path)
+    print(f"Loaded action model fron {curr_action_model_path}")
 
     for agent in jg.agents:
-        agent.action_model = action_model
-        agent.bet_model = bet_model
-        agent.eval_model = eval_model
+        agent.action_model = curr_action_model
+        agent.bet_model = curr_bet_model
+        agent.eval_model = curr_eval_model
 
     #Wait until all experience banks are at least 1/4 full to start learning:
     # while len(state_transition_bank) < 250:
@@ -213,23 +215,30 @@ def trainDQNAgent():
         # #OPTIONAL: also save in standard_bet_expert_exp_data
         saveExperienceData("standard_bet_expert_exp_data", bet_exp_data, eval_exp_data, state_transition_bank, folder_name="")
 
-    performance_against_humanbet = []
-    performance_against_prev_agents = []
+    performance_against_best_agents = []
     new_states_to_achieve_performances = []
 
     new_state_action_pairs_trained_on = 0
-    beat_humanbet_by = 0 #track how much the previous agent beat the HumanBetAgent by to determine if the nnew agent is better
+    # beat_humanbet_by = 0 #track how much the previous agent beat the HumanBetAgent by to determine if the nnew agent is better
+
+    best_bet_model = initBetModel()
+    best_bet_model.set_weights(curr_bet_model.get_weights())
+
+    best_action_model = initActionModel()
+    best_action_model.set_weights(curr_action_model.get_weights())
+
+    best_eval_model = initEvalModel()
+    best_eval_model.set_weights(curr_eval_model.get_weights())
+
+    iterations_without_beating_best_models = 0
 
     while True:
         new_state_transitions = 0
 
-        old_action_model = action_model
-        old_bet_model = bet_model
-        old_eval_model = eval_model
-
         num_new_transitions_before_eval_bet_training = 32000
         act_model_train_start = time.time()
         print(f"Playing games and training action model for {num_new_transitions_before_eval_bet_training} state transitions")
+        first_iter = True
         while new_state_transitions < num_new_transitions_before_eval_bet_training:
             bet_data, eval_data, state_transitions = jg.playGameAndCollectData(use_in_replay_buffer=True)
 
@@ -245,7 +254,7 @@ def trainDQNAgent():
             new_state_action_pairs_trained_on += min(RETRAIN_BATCH_SIZE, len(state_transition_bank))
 
             #Convert minibatch from (init_srs, action, reward) to (action_state, reward)
-            minibatch = convertMiniBatchToStateRewardPair(minibatch, action_model, eval_model)
+            minibatch = convertMiniBatchToStateRewardPair(minibatch, curr_action_model, curr_eval_model)
             minibatch_inputs = []
             minibatch_outputs = []
 
@@ -256,13 +265,29 @@ def trainDQNAgent():
             minibatch_inputs = postProcessTrainData(minibatch_inputs)
             minibatch_outputs = np.array(minibatch_outputs)
 
-            action_model.fit(minibatch_inputs, minibatch_outputs, epochs=RETRAIN_EPOCHS, batch_size=32, verbose = 0)
+            weights_before_fit = copy(curr_action_model.get_weights())
+
+            curr_action_model.fit(minibatch_inputs, minibatch_outputs, epochs=RETRAIN_EPOCHS, batch_size=32, verbose=0)
+
+            #Ensure that the model weights did not blow up
+            new_action_model_has_nan = False
+            for weight_layers in curr_action_model.get_weights():
+                for weight_layer in weight_layers:
+                    if np.any(np.isnan(weight_layer)):
+                        print("Action model blew up and produced NaN weights - resetting to before.")
+                        print(f"Old weights: {curr_action_model.get_weights()}")
+                        curr_action_model.set_weights(weights_before_fit)
+                        print(f"New weights: {curr_action_model.get_weights()}")
+
+                        new_action_model_has_nan = True
+                        break
+                if new_action_model_has_nan == True: break
 
             jg.resetGame()
 
             #Set action models of agents to the new action model
             for agent in jg.agents:
-                agent.action_model = action_model
+                agent.action_model = curr_action_model
 
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
 
@@ -280,7 +305,7 @@ def trainDQNAgent():
         bet_data_outputs = np.array(bet_data_outputs)
         
         print("Retraining bet network...")
-        bet_model.fit(bet_data_inputs,bet_data_outputs,epochs=128,batch_size=256,verbose=0)
+        curr_bet_model.fit(bet_data_inputs,bet_data_outputs,epochs=128,batch_size=256,verbose=0)
         print("Done retraining bet network.")
 
         eval_data_inputs = []
@@ -293,67 +318,77 @@ def trainDQNAgent():
         eval_data_outputs = np.array(eval_data_outputs)
 
         print("Retraining eval network...")
-        eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=128,batch_size=256,verbose=0)
+        curr_eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=128,batch_size=256,verbose=0)
+
         print(f"Done retraining bet and eval network in {time.time()-bet_eval_train_start} seconds.")
 
         #Updating action and evaluation models for agents
         for agent in jg.agents:
-            agent.bet_model = bet_model
-            agent.eval_model = eval_model
+            agent.bet_model = curr_bet_model
+            agent.eval_model = curr_eval_model
 
         #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
         print("Bet and Evaluation models retrained on new data: evaluating performance.")
 
-        #epsilon is zero for evaluation. Load new models into agents 0 and 1, old models into agents 2 and 3.
+        #epsilon is zero for evaluation. Load new models into agents 0 and 1, best models into agents 2 and 3.
         agents_to_compare = [DQNAgent(0,load_models=False),DQNAgent(1,load_models=False),DQNAgent(2,load_models=False),DQNAgent(3,load_models=False)]
         for agent in agents_to_compare[0:2]:
-            agent.action_model = action_model
-            agent.bet_model = bet_model
-            agent.eval_model = eval_model
+            agent.action_model = curr_action_model
+            agent.bet_model = curr_bet_model
+            agent.eval_model = curr_eval_model
 
         for agent in agents_to_compare[2:]:
-            agent.action_model = old_action_model
-            agent.bet_model = old_bet_model
-            agent.eval_model = old_eval_model
+            agent.action_model = best_action_model
+            agent.bet_model = best_bet_model
+            agent.eval_model = best_eval_model
 
-        print("Performance against previous agent iteration:")
-        avg_scores_against_prev_agents = compareAgents(agents_to_compare,games_num=20, cores=cpu_count())
-        new_agent_score_against_prev = sum(avg_scores_against_prev_agents[0:2])/len(avg_scores_against_prev_agents[0:2])
-        prev_agent_score_against_new = sum(avg_scores_against_prev_agents[2:])/len(avg_scores_against_prev_agents[2:])
-        print(f"New Agent average score: {new_agent_score_against_prev}, previous agent average score: {prev_agent_score_against_new}")
+        print("Performance against best agent iteration:")
+        avg_scores_against_best_agents = compareAgents(agents_to_compare,games_num=24, cores=cpu_count())
+        new_agent_score_against_best = sum(avg_scores_against_best_agents[0:2])/len(avg_scores_against_best_agents[0:2])
+        best_agent_score_against_new = sum(avg_scores_against_best_agents[2:])/len(avg_scores_against_best_agents[2:])
+        print(f"New Agent average score: {new_agent_score_against_best}, previous agent average score: {best_agent_score_against_new}")
 
-        print("Performance against HumanBetAgents:")
-        avg_scores_against_humanbet_agents = compareAgents([agents_to_compare[0],agents_to_compare[1],HumanBetAgent(2),HumanBetAgent(3)],games_num=20, cores=cpu_count())
-        new_agent_score_against_humanbet = sum(avg_scores_against_humanbet_agents[0:2])/len(avg_scores_against_humanbet_agents[0:2])
-        humanbet_agent_score_against_new = sum(avg_scores_against_humanbet_agents[2:])/len(avg_scores_against_humanbet_agents[2:])
-        print(f"New Agent average score: {new_agent_score_against_humanbet}, HumanBet agent average score: {humanbet_agent_score_against_new}")
+        # print("Performance against HumanBetAgents:")
+        # avg_scores_against_humanbet_agents = compareAgents([agents_to_compare[0],agents_to_compare[1],HumanBetAgent(2),HumanBetAgent(3)],games_num=20, cores=cpu_count())
+        # new_agent_score_against_humanbet = sum(avg_scores_against_humanbet_agents[0:2])/len(avg_scores_against_humanbet_agents[0:2])
+        # humanbet_agent_score_against_new = sum(avg_scores_against_humanbet_agents[2:])/len(avg_scores_against_humanbet_agents[2:])
+        # print(f"New Agent average score: {new_agent_score_against_humanbet}, HumanBet agent average score: {humanbet_agent_score_against_new}")
 
-        if (new_agent_score_against_prev > prev_agent_score_against_new) or (new_agent_score_against_humanbet > beat_humanbet_by):
-            print("New agent improves on old agent, so saving it.")
-            saveModels(args.run_name, bet_model, eval_model, action_model)
-            beat_humanbet_by = new_agent_score_against_humanbet - humanbet_agent_score_against_new
+        if (new_agent_score_against_best > best_agent_score_against_new):
+            print("New agent improves on best agent, so saving it.")
+            best_bet_model.set_weights(curr_bet_model.get_weights())
+            best_action_model.set_weights(curr_action_model.get_weights())
+            best_eval_model.set_weights(curr_eval_model.get_weights())
+            saveModels(args.run_name, best_bet_model, best_eval_model, best_action_model)
+
+            iterations_without_beating_best_models = 0
         else:
-            print("New agent does not improve on old agent, so does not save the model.")
-            bet_model = old_bet_model
-            eval_model = old_eval_model
-            action_model = old_action_model
+            iterations_without_beating_best_models += 1
+            
+            if iterations_without_beating_best_models >= 3:
+                print(f"It has been {iterations_without_beating_best_models} iterations without beating the best model, so reset to old best policy.")
+                #remove the last ~50 games of data from the buffer
+                state_transition_bank = [state_transition_bank.pop() for _i in range(3*32000)]
+                eval_exp_data = [eval_exp_data.pop() for _i in range(3*12500)] 
+                bet_exp_data = [bet_exp_data.pop() for _i in range(3*5000)]
+
+                curr_bet_model.set_weights(best_bet_model.get_weights())
+                curr_action_model.set_weights(curr_action_model.get_weights())
+                curr_eval_model.set_weights(curr_eval_model.get_weights())
+
+                iterations_without_beating_best_models = 0
+            else: print(f"New agent does not improve on old agent, so increase iterations without beating best to {iterations_without_beating_best_models} and continue training.")
 
         print(f"Evaluation complete: generating {num_new_transitions_before_eval_bet_training} new state transitions.")
 
         #save data for progress plots
-        performance_against_humanbet.append(new_agent_score_against_humanbet-humanbet_agent_score_against_new)
         new_states_to_achieve_performances.append(new_state_action_pairs_trained_on)
-        plt.plot(new_states_to_achieve_performances,performance_against_humanbet, label='vs. HumanBet')
+        performance_against_best_agents.append(new_agent_score_against_best-best_agent_score_against_new)
+        plt.plot(new_states_to_achieve_performances,performance_against_best_agents)
         plt.xlabel("Number of new training examples")
-        plt.ylabel("Avg. Score Difference vs. HumanBet")
+        plt.ylabel("Avg. Score Diff vs. Best Model")
 
-        performance_against_prev_agents.append(new_agent_score_against_prev-prev_agent_score_against_new)
-        plt.plot(new_states_to_achieve_performances,performance_against_prev_agents, label='vs. previous iteration')
-        plt.xlabel("Number of new training examples")
-        plt.ylabel("Avg. Score Diff vs. Prev. Iteration")
-
-        progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_prev_agent_over_time.png")
-        plt.legend()
+        progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_best_agent_over_time.png")
         plt.savefig(progress_graph_path)
         plt.clf()
 
