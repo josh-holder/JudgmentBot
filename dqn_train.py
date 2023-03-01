@@ -21,6 +21,7 @@ from multiprocessing import cpu_count
 import contextlib
 
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
 def _build_parser():
     parser = argparse.ArgumentParser(description='Run NN to generate ideal playing strategy for SPLT.')
