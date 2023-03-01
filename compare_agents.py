@@ -73,5 +73,5 @@ if __name__ == "__main__":
     # compareAgents([DQNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)],games_num=100)
     compareAgents([DQNAgent(0,bet_model_name="run1_28/best_bet_model",action_model_name="run1_28/best_act_model",eval_model_name="run1_28/best_eval_model"),\
             DQNAgent(1,bet_model_name="run1_28/best_bet_model",action_model_name="run1_28/best_act_model",eval_model_name="run1_28/best_eval_model"),\
-            DQNAgent(2,bet_model_name="run2_8/best_bet_model",action_model_name="run2_8/best_act_model",eval_model_name="run2_8/best_eval_model"),\
-            DQNAgent(3,bet_model_name="run2_8/best_bet_model",action_model_name="run2_8/best_act_model",eval_model_name="run2_8/best_eval_model")], games_num=args.games, cores=cpu_count())
+            DQNAgent(2,bet_model_name="run2_9/best_bet_model",action_model_name="run2_9/best_act_model",eval_model_name="run2_9/best_eval_model"),\
+            DQNAgent(3,bet_model_name="run2_9/best_bet_model",action_model_name="run2_9/best_act_model",eval_model_name="run2_9/best_eval_model")], games_num=args.games, cores=cpu_count())
