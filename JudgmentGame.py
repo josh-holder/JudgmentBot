@@ -142,7 +142,6 @@ class JudgmentGame(object):
         #or (srs_input, chosen_action, point diff. at end of round) in the case of replay buffer data
 
         for round, hand_size in enumerate(self.hand_sizes):
-            print(hand_size)
             bet_state_input_data = {} #keys: agent ids. values: bet states, which will later be paired with an average score difference
             eval_state_input_data = {}
 

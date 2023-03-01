@@ -208,6 +208,7 @@ def trainDQNAgent():
         eval_exp_data.extend(eval_data)
         state_transition_bank.extend(state_transitions)
 
+        print("???")
         print(f"Bet: {len(bet_exp_data)}/{BET_EXPERIENCE_BANK_SIZE/4}, Eval: {len(eval_exp_data)}/{EVAL_EXPERIENCE_BANK_SIZE/4}, Act: {len(state_transition_bank)}/{ACTION_EXPERIENCE_BANK_SIZE/4}",end='\r')
 
         jg.resetGame()
@@ -216,7 +217,7 @@ def trainDQNAgent():
     if need_to_generate_init_data:
         saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
         # #OPTIONAL: also save in standard_bet_expert_exp_data
-        saveExperienceData("agent_1_28_init_rbuffer_data", bet_exp_data, eval_exp_data, state_transition_bank, folder_name="")
+        # saveExperienceData("agent_1_28_init_rbuffer_data", bet_exp_data, eval_exp_data, state_transition_bank, folder_name="")
 
     performance_against_best_agents = []
     new_states_to_achieve_performances = []
