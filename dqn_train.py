@@ -203,7 +203,7 @@ def trainDQNAgent():
         start = time.time()
         need_to_generate_init_data = True
         bet_data, eval_data, state_transitions = jg.playGameAndCollectData(use_in_replay_buffer=True)
-        print(time.time-start)
+        print(time.time()-start)
 
         #add to existing bet_exp_data bank
         bet_exp_data.extend(bet_data)
