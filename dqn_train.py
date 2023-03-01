@@ -200,15 +200,16 @@ def trainDQNAgent():
     need_to_generate_init_data = False
     while len(bet_exp_data)<BET_EXPERIENCE_BANK_SIZE/4 or len(eval_exp_data)<EVAL_EXPERIENCE_BANK_SIZE/4 \
         or len(state_transition_bank)<ACTION_EXPERIENCE_BANK_SIZE/4:
+        start = time.time()
         need_to_generate_init_data = True
         bet_data, eval_data, state_transitions = jg.playGameAndCollectData(use_in_replay_buffer=True)
+        print(time.time-start)
 
         #add to existing bet_exp_data bank
         bet_exp_data.extend(bet_data)
         eval_exp_data.extend(eval_data)
         state_transition_bank.extend(state_transitions)
 
-        print("???")
         print(f"Bet: {len(bet_exp_data)}/{BET_EXPERIENCE_BANK_SIZE/4}, Eval: {len(eval_exp_data)}/{EVAL_EXPERIENCE_BANK_SIZE/4}, Act: {len(state_transition_bank)}/{ACTION_EXPERIENCE_BANK_SIZE/4}",end='\r')
 
         jg.resetGame()
