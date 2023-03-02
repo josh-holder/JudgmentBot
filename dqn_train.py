@@ -1,8 +1,7 @@
 from collections import deque
 import pickle
 import os
-from nn_config import ACTION_EXPERIENCE_BANK_SIZE, BET_EXPERIENCE_BANK_SIZE, EVAL_EXPERIENCE_BANK_SIZE, \
-    RETRAIN_BATCH_SIZE, RETRAIN_EPOCHS
+import nn_config
 import argparse
 import numpy as np
 import random
@@ -18,7 +17,7 @@ from DQNAgent import DQNAgent
 from compare_agents import compareAgents
 from HumanBetAgent import HumanBetAgent
 from multiprocessing import cpu_count
-import contextlib
+import wandb
 
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
@@ -30,7 +29,7 @@ def _build_parser():
         '-r','--run_name',
         help="Will name the output directory for the results of the run",
         type=str,
-        default="run1",
+        default="test_run",
     )
 
     parser.add_argument(
@@ -54,9 +53,57 @@ def _build_parser():
         default="action_expert_train_model",
     )
 
+    parser.add_argument(
+        '-t','--track',
+        help="Flag determining whether to track this run in weights and biases",
+        action="store_true",
+        default=False,
+    )
+
+    parser.add_argument(
+        '--wandb_project_name',
+        help="Name of WandB project to log to. Only relevant if args.track=True.",
+        type=str,
+        default="JudgementBot",
+    )
+
+    parser.add_argument(
+        '--rb_data_folder',
+        help="Folder to use existing experience data from. Defaults to the run name.",
+        type=str,
+        default="",
+    )
+
+    parser.add_argument(
+        "--wandb-entity", 
+        type=str, 
+        default="josh-holder", 
+        help="the entity (team) of wandb's project"
+    )
+
     return parser
 
-def loadExperienceData(run_name, folder_name='dqn_experience_data'):
+def initWandBTrack(args):
+    #initialize weights and biases tracking
+    run_name = f"{args.run_name}__{int(time.time())}"
+    config_dict = vars(args)
+    config_dict.pop("track",None)
+    config_dict.pop("wand_project_name",None)
+    
+    nn_config_dict = nn_config.__dict__
+    for key in list(nn_config.__dict__.keys()):
+        if key.startswith("_"): nn_config_dict.pop(key,None)
+
+    config_dict = {**config_dict, **nn_config.__dict__}
+
+    wandb.init(
+        name=run_name,
+        entity=args.wandb_entity,
+        project=args.wandb_project_name,
+        config=config_dict,
+    )
+
+def loadReplayBufferData(run_name, folder_name='dqn_experience_data'):
     """
     Loads exists, or creates new experience data to use for experience replay.
     """
@@ -75,7 +122,7 @@ def loadExperienceData(run_name, folder_name='dqn_experience_data'):
         print(f"Done loading {len(act_experience_data)} items of action experience data")
     else:
         print("Previous action experience data not found: generating empty memory list.")
-        act_experience_data = deque(maxlen=ACTION_EXPERIENCE_BANK_SIZE)
+        act_experience_data = deque(maxlen=nn_config.ACTION_REPLAY_BUFFER_SIZE)
 
     bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
     if os.path.exists(bet_mem_path):
@@ -85,7 +132,7 @@ def loadExperienceData(run_name, folder_name='dqn_experience_data'):
         print(f"Done loading {len(bet_experience_data)} items of bet experience data")
     else:
         print("Previous bet experience data not found: generating empty memory list.")
-        bet_experience_data = deque(maxlen=BET_EXPERIENCE_BANK_SIZE)
+        bet_experience_data = deque(maxlen=nn_config.BET_REPLAY_BUFFER_SIZE)
 
     eval_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"eval_experience_data.pkl")
     if os.path.exists(eval_mem_path):
@@ -95,29 +142,29 @@ def loadExperienceData(run_name, folder_name='dqn_experience_data'):
         print(f"Done loading {len(eval_experience_data)} items of eval experience data")
     else:
         print("Previous eval experience data not found: generating empty memory list.")
-        eval_experience_data = deque(maxlen=EVAL_EXPERIENCE_BANK_SIZE)
+        eval_experience_data = deque(maxlen=nn_config.EVAL_REPLAY_BUFFER_SIZE)
 
     return bet_experience_data, eval_experience_data, act_experience_data
 
-def saveExperienceData(run_name,bet_exp_data,eval_exp_data,state_transition_bank,folder_name="dqn_experience_data"):
+def saveExperienceData(run_name,bet_rb_data,eval_rb_data,action_rb_data,folder_name="dqn_experience_data"):
     folder_path = os.path.join(os.getcwd(), run_name, folder_name)
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
 
     bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
     with open(bet_mem_path,'wb') as f:
-        print(f"Saving {len(bet_exp_data)} items of bet experience data in {bet_mem_path}")
-        pickle.dump(bet_exp_data,f)
+        print(f"Saving {len(bet_rb_data)} items of bet experience data in {bet_mem_path}")
+        pickle.dump(bet_rb_data,f)
     
     eval_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"eval_experience_data.pkl")
     with open(eval_mem_path,'wb') as f:
-        print(f"Saving {len(eval_exp_data)} items of eval experience data in {eval_mem_path}")
-        pickle.dump(eval_exp_data,f)
+        print(f"Saving {len(eval_rb_data)} items of eval experience data in {eval_mem_path}")
+        pickle.dump(eval_rb_data,f)
     
     act_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"act_experience_data.pkl")
     with open(act_mem_path,'wb') as f:
-        print(f"Saving {len(state_transition_bank)} items of state transition data in {act_mem_path}")
-        pickle.dump(state_transition_bank,f)
+        print(f"Saving {len(action_rb_data)} items of state transition data in {act_mem_path}")
+        pickle.dump(action_rb_data,f)
 
 def saveModels(run_name, bet_model, eval_model, act_model):
     bet_model_path = os.path.join(os.getcwd(),run_name,"best_bet_model")
@@ -165,12 +212,16 @@ def convertMiniBatchToStateRewardPair(state_transition_minibatch, action_model, 
 def trainDQNAgent():
     parser = _build_parser()
     args = parser.parse_args()
+    if args.rb_data_folder == "": args.rb_data_folder = args.run_name #if no experience data was input, attempt to find experience data in current run folder
+
 
     run_folder_path = os.path.join(os.getcwd(),args.run_name)
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
 
-    bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData(args.run_name)
+    if args.track: initWandBTrack(args)
+
+    bet_rb_data, eval_rb_data, action_rb_data = loadReplayBufferData(args.rb_data_folder)
 
     jg = JudgmentGame(agents=[DQNAgent(0,epsilon=0.3, load_models=False),DQNAgent(1,epsilon=0.3, load_models=False),DQNAgent(2,epsilon=0.3, load_models=False),DQNAgent(3,epsilon=0.3, load_models=False)])
 
@@ -196,30 +247,30 @@ def trainDQNAgent():
         agent.eval_model = curr_eval_model
 
     #Wait until all experience banks are at least 1/4 full to start learning:
-    # while len(state_transition_bank) < 250:
+    # while len(action_rb_data) < 250:
     print("Generating initial amount of training data...")
     need_to_generate_init_data = False
-    while len(bet_exp_data)<BET_EXPERIENCE_BANK_SIZE/4 or len(eval_exp_data)<EVAL_EXPERIENCE_BANK_SIZE/4 \
-        or len(state_transition_bank)<ACTION_EXPERIENCE_BANK_SIZE/4:
+    while len(bet_rb_data)<nn_config.BET_REPLAY_BUFFER_SIZE/4 or len(eval_rb_data)<nn_config.EVAL_REPLAY_BUFFER_SIZE/4 \
+        or len(action_rb_data)<nn_config.ACTION_REPLAY_BUFFER_SIZE/4:
         start = time.time()
         need_to_generate_init_data = True
         bet_data, eval_data, state_transitions = jg.playGameAndCollectData(use_in_replay_buffer=True)
         print(time.time()-start)
 
-        #add to existing bet_exp_data bank
-        bet_exp_data.extend(bet_data)
-        eval_exp_data.extend(eval_data)
-        state_transition_bank.extend(state_transitions)
+        #add to existing bet_rb_data bank
+        bet_rb_data.extend(bet_data)
+        eval_rb_data.extend(eval_data)
+        action_rb_data.extend(state_transitions)
 
-        print(f"Bet: {len(bet_exp_data)}/{BET_EXPERIENCE_BANK_SIZE/4}, Eval: {len(eval_exp_data)}/{EVAL_EXPERIENCE_BANK_SIZE/4}, Act: {len(state_transition_bank)}/{ACTION_EXPERIENCE_BANK_SIZE/4}",end='\r')
+        print(f"Bet: {len(bet_rb_data)}/{nn_config.BET_REPLAY_BUFFER_SIZE/4}, Eval: {len(eval_rb_data)}/{nn_config.EVAL_REPLAY_BUFFER_SIZE/4}, Act: {len(action_rb_data)}/{nn_config.ACTION_REPLAY_BUFFER_SIZE/4}",end='\r')
 
         jg.resetGame()
 
-    print(f"Sufficient training data is available ({len(state_transition_bank)} state transition, {len(eval_exp_data)} eval, {len(bet_exp_data)} bet)")
+    print(f"Sufficient training data is available ({len(action_rb_data)} state transition, {len(eval_rb_data)} eval, {len(bet_rb_data)} bet)")
     if need_to_generate_init_data:
-        saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
+        saveExperienceData(args.run_name, bet_rb_data, eval_rb_data, action_rb_data)
         # #OPTIONAL: also save in standard_bet_expert_exp_data
-        # saveExperienceData("agent_1_28_init_rbuffer_data", bet_exp_data, eval_exp_data, state_transition_bank, folder_name="")
+        # saveExperienceData("agent_1_28_init_rbuffer_data", bet_rb_data, eval_rb_data, action_rb_data, folder_name="")
 
     performance_against_best_agents = []
     new_states_to_achieve_performances = []
@@ -236,7 +287,7 @@ def trainDQNAgent():
     while True:
         new_state_transitions = 0
 
-        num_new_transitions_before_eval_bet_training = 32000
+        num_new_transitions_before_eval_bet_training = nn_config.NUM_NEW_TRANSITIONS_BEFORE_EVAL_BET_TRAIN
         act_model_train_start = time.time()
         print(f"Playing games and training action model for {num_new_transitions_before_eval_bet_training} state transitions")
         while new_state_transitions < num_new_transitions_before_eval_bet_training:
@@ -245,13 +296,13 @@ def trainDQNAgent():
             new_state_transitions += len(state_transitions)
             print(f"State transitions: {new_state_transitions}/{num_new_transitions_before_eval_bet_training}",end='\r')
 
-            #add to existing bet_exp_data bank
-            bet_exp_data.extend(bet_data)
-            eval_exp_data.extend(eval_data)
-            state_transition_bank.extend(state_transitions)
+            #add to existing bet_rb_data bank
+            bet_rb_data.extend(bet_data)
+            eval_rb_data.extend(eval_data)
+            action_rb_data.extend(state_transitions)
 
-            minibatch = random.sample(state_transition_bank,min(RETRAIN_BATCH_SIZE, len(state_transition_bank))) #selects BATCH_SIZE unique states to retrain the NN on
-            new_state_action_pairs_trained_on += min(RETRAIN_BATCH_SIZE, len(state_transition_bank))
+            minibatch = random.sample(action_rb_data,min(nn_config.RETRAIN_BATCH_SIZE, len(action_rb_data))) #selects BATCH_SIZE unique states to retrain the NN on
+            new_state_action_pairs_trained_on += min(nn_config.RETRAIN_BATCH_SIZE, len(action_rb_data))
 
             #Convert minibatch from (init_srs, action, reward) to (action_state, reward)
             minibatch = convertMiniBatchToStateRewardPair(minibatch, curr_action_model, curr_eval_model)
@@ -267,7 +318,9 @@ def trainDQNAgent():
 
             weights_before_fit = copy(curr_action_model.get_weights())
 
-            curr_action_model.fit(minibatch_inputs, minibatch_outputs, epochs=RETRAIN_EPOCHS, batch_size=32, verbose=0)
+            act_loss = curr_action_model.fit(minibatch_inputs, minibatch_outputs, epochs=nn_config.RETRAIN_EPOCHS, batch_size=nn_config.RETRAIN_BATCH_SIZE, verbose=0)
+
+            wandb.log({"train/state_transitions":new_state_action_pairs_trained_on,"train/act_loss":sum(act_loss.history["loss"])/len(act_loss.history["loss"])})
 
             #Ensure that the model weights did not blow up
             new_action_model_has_nan = False
@@ -289,7 +342,7 @@ def trainDQNAgent():
             for agent in jg.agents:
                 agent.action_model = curr_action_model
 
-        saveExperienceData(args.run_name, bet_exp_data, eval_exp_data, state_transition_bank)
+        saveExperienceData(args.run_name, bet_rb_data, eval_rb_data, action_rb_data)
 
         #~~~~~~~~~~~~~~~~~~~~~~~TRAINING BET AND EVAL NETWORKS ON NEW EXPERIENCE DATA~~~~~~~~~~~~~~~~~~~``
         print(f">{num_new_transitions_before_eval_bet_training} new transitions generated in {time.time()-act_model_train_start} sec, so retraining bet and evaluation networks on new data.")
@@ -297,7 +350,7 @@ def trainDQNAgent():
 
         bet_data_inputs = []
         bet_data_outputs = []
-        for bet_data in bet_exp_data:
+        for bet_data in bet_rb_data:
             bet_data_inputs.append(bet_data[0])
             bet_data_outputs.append(bet_data[1])
 
@@ -305,12 +358,12 @@ def trainDQNAgent():
         bet_data_outputs = np.array(bet_data_outputs)
         
         print("Retraining bet network...")
-        curr_bet_model.fit(bet_data_inputs,bet_data_outputs,epochs=128,batch_size=256,verbose=0)
+        curr_bet_model.fit(bet_data_inputs,bet_data_outputs,epochs=nn_config.BET_TRAIN_EPOCHS,batch_size=nn_config.BET_TRAIN_BATCH_SIZE,verbose=0)
         print("Done retraining bet network.")
 
         eval_data_inputs = []
         eval_data_outputs = []
-        for eval_data in eval_exp_data:
+        for eval_data in eval_rb_data:
             eval_data_inputs.append(eval_data[0])
             eval_data_outputs.append(eval_data[1])
 
@@ -318,7 +371,7 @@ def trainDQNAgent():
         eval_data_outputs = np.array(eval_data_outputs)
 
         print("Retraining eval network...")
-        curr_eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=128,batch_size=256,verbose=0)
+        curr_eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=nn_config.EVAL_TRAIN_EPOCHS,batch_size=nn_config.EVAL_TRAIN_BATCH_SIZE,verbose=0)
 
         print(f"Done retraining bet and eval network in {time.time()-bet_eval_train_start} seconds.")
 
@@ -372,9 +425,9 @@ def trainDQNAgent():
             if iterations_without_improving_best_agent >= 3:
                 print(f"It has been {iterations_without_improving_best_agent} iterations without improving on best agent, so reset to old best agent.")
                 #remove the last ~50 games of data from the buffer
-                state_transition_bank = [state_transition_bank.pop() for _i in range(3*32000)]
-                eval_exp_data = [eval_exp_data.pop() for _i in range(3*12500)] 
-                bet_exp_data = [bet_exp_data.pop() for _i in range(3*5000)]
+                action_rb_data = [action_rb_data.pop() for _i in range(3*nn_config.NUM_NEW_TRANSITIONS_BEFORE_EVAL_BET_TRAIN)]
+                eval_rb_data = [eval_rb_data.pop() for _i in range(3*nn_config.NUM_NEW_TRANSITIONS_BEFORE_EVAL_BET_TRAIN//3)] 
+                bet_rb_data = [bet_rb_data.pop() for _i in range(3*nn_config.NUM_NEW_TRANSITIONS_BEFORE_EVAL_BET_TRAIN//6)]
 
                 curr_bet_model.set_weights(best_bet_weights)
                 curr_action_model.set_weights(best_action_weights)
@@ -384,6 +437,8 @@ def trainDQNAgent():
             else: print(f"~~~New agent does not improve on best agent (beat baseline by {current_beat_baseline_by} instead of {best_model_beat_baseline_by}), so increase iterations without improving on best to {iterations_without_improving_best_agent} and continue training.~~~")
 
         print(f"Evaluation complete: generating {num_new_transitions_before_eval_bet_training} new state transitions.")
+
+        wandb.log({"eval/score_diff_against_baseline": current_beat_baseline_by, "eval/state_transitions": new_state_action_pairs_trained_on})
 
         #save data for progress plots
         new_states_to_achieve_performances.append(new_state_action_pairs_trained_on)
@@ -399,7 +454,7 @@ def trainDQNAgent():
 
 if __name__ == "__main__":
     # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])
-    # bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData("run1")
+    # bet_rb_data, eval_rb_data, action_rb_data = loadReplayBufferData("run1")
 
     trainDQNAgent()
 
