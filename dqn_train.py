@@ -320,7 +320,7 @@ def trainDQNAgent():
 
             act_loss = curr_action_model.fit(minibatch_inputs, minibatch_outputs, epochs=nn_config.RETRAIN_EPOCHS, batch_size=nn_config.RETRAIN_BATCH_SIZE, verbose=0)
 
-            wandb.log({"train/state_transitions":new_state_action_pairs_trained_on,"train/act_loss":sum(act_loss.history["loss"])/len(act_loss.history["loss"])})
+            wandb.log({"act_train/state_transitions":new_state_action_pairs_trained_on,"act_train/act_loss":act_loss.history["loss"][-1]})
 
             #Ensure that the model weights did not blow up
             new_action_model_has_nan = False
@@ -358,7 +358,7 @@ def trainDQNAgent():
         bet_data_outputs = np.array(bet_data_outputs)
         
         print("Retraining bet network...")
-        curr_bet_model.fit(bet_data_inputs,bet_data_outputs,epochs=nn_config.BET_TRAIN_EPOCHS,batch_size=nn_config.BET_TRAIN_BATCH_SIZE,verbose=0)
+        bet_loss = curr_bet_model.fit(bet_data_inputs,bet_data_outputs,epochs=nn_config.BET_TRAIN_EPOCHS,batch_size=nn_config.BET_TRAIN_BATCH_SIZE,verbose=0)
         print("Done retraining bet network.")
 
         eval_data_inputs = []
@@ -371,7 +371,7 @@ def trainDQNAgent():
         eval_data_outputs = np.array(eval_data_outputs)
 
         print("Retraining eval network...")
-        curr_eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=nn_config.EVAL_TRAIN_EPOCHS,batch_size=nn_config.EVAL_TRAIN_BATCH_SIZE,verbose=0)
+        eval_loss = curr_eval_model.fit(eval_data_inputs,eval_data_outputs,epochs=nn_config.EVAL_TRAIN_EPOCHS,batch_size=nn_config.EVAL_TRAIN_BATCH_SIZE,verbose=0)
 
         print(f"Done retraining bet and eval network in {time.time()-bet_eval_train_start} seconds.")
 
@@ -379,6 +379,8 @@ def trainDQNAgent():
         for agent in jg.agents:
             agent.bet_model = curr_bet_model
             agent.eval_model = curr_eval_model
+
+        wandb.log({"be_train/bet_loss":bet_loss.history["loss"][-1],"be_train/eval_loss":eval_loss.history["loss"][-1]})
 
         #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
         print("Bet and Evaluation models retrained on new data: evaluating performance.")
