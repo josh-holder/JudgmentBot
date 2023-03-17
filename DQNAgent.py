@@ -44,7 +44,8 @@ class DQNAgent(SimpleAgent):
             self.eval_model = keras.models.load_model(eval_model_path)
 
             action_model_path = os.path.join(os.getcwd(),action_model_name)
-            self.action_model = keras.models.load_model(action_model_path)
+            self.action_model = keras.models.load_model(action_model_path)         
+
         else:
             self.action_model = None
             self.bet_model = None

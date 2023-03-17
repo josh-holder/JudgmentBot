@@ -54,6 +54,12 @@ def _build_parser():
     )
 
     parser.add_argument(
+        '-m','--models_path',
+        help="Path to folder containing models, if you're restarting from a previous run. Defaults to None, in which case will use -b, -e, and -a to find models.",
+        default=None,
+    )
+
+    parser.add_argument(
         '-t','--track',
         help="Flag determining whether to track this run in weights and biases",
         action="store_true",
@@ -167,6 +173,56 @@ def saveExperienceData(run_name,bet_rb_data,eval_rb_data,action_rb_data,folder_n
         print(f"Saving {len(action_rb_data)} items of state transition data in {act_mem_path}")
         pickle.dump(action_rb_data,f)
 
+def loadModels(args):
+    """
+    Given command line arguments, loads current, baseline, and target models.
+    """
+    if args.models_path == None:
+        curr_bet_model_path = os.path.join(os.getcwd(),args.bet_model_path)
+        curr_bet_model = keras.models.load_model(curr_bet_model_path)
+        print(f"Loaded current bet model from {curr_bet_model_path}")
+
+        curr_eval_model_path = os.path.join(os.getcwd(),args.eval_model_path)
+        curr_eval_model = keras.models.load_model(curr_eval_model_path)
+        print(f"Loaded current eval model from {curr_eval_model_path}")
+
+        curr_action_model_path = os.path.join(os.getcwd(),args.action_model_path)
+        curr_action_model = keras.models.load_model(curr_action_model_path)
+        print(f"Loaded current action model fron {curr_action_model_path}")
+    
+    else:
+        curr_bet_model_path = os.path.join(os.getcwd(),args.models_path,"best_bet_model")
+        curr_bet_model = keras.models.load_model(curr_bet_model_path)
+        print(f"Loaded current bet model from {curr_bet_model_path}")
+
+        curr_eval_model_path = os.path.join(os.getcwd(),args.models_path,"best_eval_model")
+        curr_eval_model = keras.models.load_model(curr_eval_model_path)
+        print(f"Loaded current eval model from {curr_eval_model_path}")
+
+        curr_action_model_path = os.path.join(os.getcwd(),args.models_path,"best_act_model")
+        curr_action_model = keras.models.load_model(curr_action_model_path)
+        print(f"Loaded current action model fron {curr_action_model_path}")
+
+    baseline_bet_model = tf.keras.models.clone_model(curr_bet_model)
+    baseline_bet_model.set_weights(curr_bet_model.get_weights())
+
+    baseline_eval_model = tf.keras.models.clone_model(curr_eval_model)
+    baseline_eval_model.set_weights(curr_eval_model.get_weights())
+
+    baseline_action_model = tf.keras.models.clone_model(curr_action_model)
+    baseline_action_model.set_weights(curr_action_model.get_weights())
+
+    for layer in baseline_bet_model.layers:
+        layer.trainable = False
+    for layer in baseline_eval_model.layers:
+        layer.trainable = False
+    for layer in baseline_action_model.layers:
+        layer.trainable = False
+
+    print("Initialized target models as untrainable copies of current models.")
+
+    return curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model
+
 def saveModels(run_name, bet_model, eval_model, act_model):
     bet_model_path = os.path.join(os.getcwd(),run_name,"best_bet_model")
     bet_model.save(bet_model_path)
@@ -227,20 +283,7 @@ def trainDQNAgent():
     jg = JudgmentGame(agents=[DQNAgent(0,epsilon=0.3, load_models=False),DQNAgent(1,epsilon=0.3, load_models=False),DQNAgent(2,epsilon=0.3, load_models=False),DQNAgent(3,epsilon=0.3, load_models=False)])
 
     print("Loading models...")
-    curr_bet_model_path = os.path.join(os.getcwd(),args.bet_model_path)
-    curr_bet_model = keras.models.load_model(curr_bet_model_path)
-    baseline_bet_model = keras.models.load_model(curr_bet_model_path)
-    print(f"Loaded bet model from {curr_bet_model_path}")
-
-    curr_eval_model_path = os.path.join(os.getcwd(),args.eval_model_path)
-    curr_eval_model = keras.models.load_model(curr_eval_model_path)
-    baseline_eval_model = keras.models.load_model(curr_eval_model_path)
-    print(f"Loaded eval model from {curr_eval_model_path}")
-
-    curr_action_model_path = os.path.join(os.getcwd(),args.action_model_path)
-    curr_action_model = keras.models.load_model(curr_action_model_path)
-    baseline_action_model = keras.models.load_model(curr_action_model_path)
-    print(f"Loaded action model fron {curr_action_model_path}")
+    curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model = loadModels(args)
 
     for agent in jg.agents:
         agent.action_model = curr_action_model
@@ -321,7 +364,8 @@ def trainDQNAgent():
 
             act_loss = curr_action_model.fit(minibatch_inputs, minibatch_outputs, epochs=nn_config.RETRAIN_EPOCHS, batch_size=nn_config.RETRAIN_BATCH_SIZE, verbose=0)
 
-            wandb.log({"act_train/state_transitions":new_state_action_pairs_trained_on,"act_train/act_loss":act_loss.history["loss"][-1]})
+            if args.track:
+                wandb.log({"act_train/state_transitions":new_state_action_pairs_trained_on,"act_train/act_loss":act_loss.history["loss"][-1]})
 
             #Ensure that the model weights did not blow up
             new_action_model_has_nan = False
@@ -381,7 +425,7 @@ def trainDQNAgent():
             agent.bet_model = curr_bet_model
             agent.eval_model = curr_eval_model
 
-        wandb.log({"be_train/bet_loss":bet_loss.history["loss"][-1],"be_train/eval_loss":eval_loss.history["loss"][-1]})
+        if args.track: wandb.log({"be_train/bet_loss":bet_loss.history["loss"][-1],"be_train/eval_loss":eval_loss.history["loss"][-1]})
 
         #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
         print("Bet and Evaluation models retrained on new data: evaluating performance.")
@@ -441,7 +485,7 @@ def trainDQNAgent():
 
         print(f"Evaluation complete: generating {num_new_transitions_before_eval_bet_training} new state transitions.")
 
-        wandb.log({"eval/score_diff_against_baseline": current_beat_baseline_by, "eval/state_transitions": new_state_action_pairs_trained_on})
+        if args.track: wandb.log({"eval/score_diff_against_baseline": current_beat_baseline_by, "eval/state_transitions": new_state_action_pairs_trained_on})
 
         #save data for progress plots
         new_states_to_achieve_performances.append(new_state_action_pairs_trained_on)
