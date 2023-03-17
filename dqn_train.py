@@ -96,6 +96,7 @@ def initWandBTrack(args):
     config_dict.pop("track",None)
     config_dict.pop("wandb_project_name",None)
     config_dict.pop("wandb_entity",None)
+    config_dict["algo"] = "dqn"
     
     nn_config_dict = nn_config.__dict__
     for key in list(nn_config.__dict__.keys()):
