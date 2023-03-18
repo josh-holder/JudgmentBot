@@ -94,6 +94,7 @@ def initWandBTrack(args):
     nn_config_dict = nn_config.__dict__
     for key in list(nn_config.__dict__.keys()):
         if key.startswith("_"): nn_config_dict.pop(key,None)
+        if key.startswith("DQN"): nn_config_dict.pop(key,None)
 
     config_dict = {**config_dict, **nn_config.__dict__}
 
@@ -103,69 +104,6 @@ def initWandBTrack(args):
         project=args.wandb_project_name,
         config=config_dict,
     )
-
-def loadExperienceData(run_name, folder_name='dqn_experience_data'):
-    """
-    Loads exists, or creates new experience data to use for experience replay.
-    """
-    run_folder_path = os.path.join(os.getcwd(),run_name)
-    dqnexp_folder_path = os.path.join(run_folder_path,folder_name)
-    if not os.path.exists(run_folder_path):
-        os.mkdir(run_folder_path)
-    if not os.path.exists(dqnexp_folder_path):
-        os.mkdir(dqnexp_folder_path)
-
-    act_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"act_experience_data.pkl")
-    if os.path.exists(act_mem_path):
-        print("Loading existing action experience data.")
-        with open(act_mem_path,'rb') as f:
-            act_experience_data = pickle.load(f)
-        print(f"Done loading {len(act_experience_data)} items of action experience data")
-    else:
-        print("Previous action experience data not found: generating empty memory list.")
-        act_experience_data = deque(maxlen=nn_config.ACTION_EXPERIENCE_BANK_SIZE)
-
-    bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
-    if os.path.exists(bet_mem_path):
-        print("Loading existing bet experience data.")
-        with open(bet_mem_path,'rb') as f:
-            bet_experience_data = pickle.load(f)
-        print(f"Done loading {len(bet_experience_data)} items of bet experience data")
-    else:
-        print("Previous bet experience data not found: generating empty memory list.")
-        bet_experience_data = deque(maxlen=nn_config.BET_EXPERIENCE_BANK_SIZE)
-
-    eval_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"eval_experience_data.pkl")
-    if os.path.exists(eval_mem_path):
-        print("Loading existing eval experience data.")
-        with open(eval_mem_path,'rb') as f:
-            eval_experience_data = pickle.load(f)
-        print(f"Done loading {len(eval_experience_data)} items of eval experience data")
-    else:
-        print("Previous eval experience data not found: generating empty memory list.")
-        eval_experience_data = deque(maxlen=nn_config.EVAL_EXPERIENCE_BANK_SIZE)
-
-    return bet_experience_data, eval_experience_data, act_experience_data
-
-def saveExperienceData(run_name,bet_exp_data,eval_exp_data,state_transition_bank,folder_name="dqn_experience_data"):
-    folder_path = os.path.join(os.getcwd(), run_name, folder_name)
-    if not os.path.exists(folder_path):
-        os.mkdir(folder_path)
-
-    bet_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"bet_experience_data.pkl")
-    with open(bet_mem_path,'wb') as f:
-        print(f"Saving {len(bet_exp_data)} items of bet experience data in {bet_mem_path}")
-        pickle.dump(bet_exp_data,f)
-    
-    eval_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"eval_experience_data.pkl")
-    with open(eval_mem_path,'wb') as f:
-        print(f"Saving {len(eval_exp_data)} items of eval experience data in {eval_mem_path}")
-        pickle.dump(eval_exp_data,f)
-    
-    act_mem_path = os.path.join(os.getcwd(),run_name,folder_name,"act_experience_data.pkl")
-    with open(act_mem_path,'wb') as f:
-        print(f"Saving {len(state_transition_bank)} items of state transition data in {act_mem_path}")
-        pickle.dump(state_transition_bank,f)
 
 def loadModels(args):
     """
@@ -213,7 +151,7 @@ def loadModels(args):
     for layer in baseline_action_model.layers:
         layer.trainable = False
 
-    print("Initialized target models as untrainable copies of current models.")
+    print("Initialized baseline models as untrainable copies of current models.")
 
     return curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model
 
@@ -259,6 +197,56 @@ def convertMiniBatchToStateRewardPair(state_transition_minibatch, action_model, 
 
     return converted_minibatch
 
+def playJudgmentGameThread(curr_action_model, curr_bet_model, curr_eval_model, epsilon_choice, \
+                           accum_act_gradients_queue, accum_bet_gradients_queue, accum_eval_gradients_queue):
+    """
+    Plays a game of Judgment with an asynchronous actor, given models and a randomly chosen epsilon value.
+
+    At the end of each round of the game, the actor will compute a gradient update of its current weights.
+    Along the way, it accumulates the gradients for the action, bet, and eval models, eventually applying them
+    to the global weight network.
+    """
+
+    #Initialize local models in thread
+    thread_action_model = tf.keras.models.clone_model(curr_action_model)
+    thread_action_model.set_weights(curr_action_model.get_weights())
+
+    thread_bet_model = tf.keras.models.clone_model(curr_bet_model)
+    thread_bet_model.set_weights(curr_bet_model.get_weights())
+
+    thread_eval_model = tf.keras.models.clone_model(curr_eval_model)
+    thread_eval_model.set_weights(curr_eval_model.get_weights())
+
+    for game_num in range(nn_config.A3C_NUM_GAMES_PER_WORKER):
+        #Initialize game
+        jg = JudgmentGame([DQNAgent(0,epsilon_choice,load_models=False), DQNAgent(1,epsilon_choice,load_models=False), \
+                           DQNAgent(2,epsilon_choice,load_models=False), DQNAgent(3,epsilon_choice,load_models=False)])
+        
+        #Set models for each agent
+        for agent in jg.agents:
+            agent.action_model = thread_action_model
+            agent.bet_model = thread_bet_model
+            agent.eval_model = thread_eval_model
+
+        bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectData()
+        print(type(bet_train_data))
+
+        #Compute loss on bet model
+        print(len(bet_train_data))
+        with tf.GradientTape() as bet_tape:
+            #NOTE: there is the potential for a huge speedup here: playGameAndCollectData()
+            #returns data in the form of (bet_state, reward), at which point we reevaluate the bet network
+            #on that bet state in order to compute the loss. If we made a new function which returned simply
+            #the Q value and the loss, that would be far quicker.
+            for bet_train_datum in bet_train_data:
+                bet_state = bet_train_datum[0]
+                print(bet_state)
+                prediction = thread_bet_model(bet_state)
+                reward = bet_train_datum[1]
+                bet_loss = tf.keras.losses.MeanSquaredError(reward, prediction)
+                print(bet_loss)
+
+
 def trainAgentViaA3C():
     parser = _build_parser()
     args = parser.parse_args()
@@ -302,7 +290,7 @@ def trainAgentViaA3C():
         accum_eval_gradients_queue.put(accum_eval_gradients)
 
         #bet and eval gradients
-        for core_num in range(cpu_count()):
+        for _ in range(1):
             epsilon_choice = random.choice(epsilon_choices)
             p = Process(target=playJudgmentGameThread(curr_action_model, curr_bet_model, curr_eval_model, epsilon_choice, \
                                                       accum_act_gradients_queue, accum_bet_gradients_queue, accum_eval_gradients_queue)) 
@@ -311,7 +299,12 @@ def trainAgentViaA3C():
             p.start()
 
         for p in processes:
+            print("joining")
             p.join()
+            print("joined")
+        
+        print("done")
+        break
 
         #update weights by the accumulated gradients
 
@@ -387,6 +380,7 @@ def trainAgentViaA3C():
         progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_baseline_agent_over_time.png")
         plt.savefig(progress_graph_path)
         plt.clf()
+    print("really done")
 
 if __name__ == "__main__":
     # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])

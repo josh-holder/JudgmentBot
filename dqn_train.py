@@ -101,6 +101,7 @@ def initWandBTrack(args):
     nn_config_dict = nn_config.__dict__
     for key in list(nn_config.__dict__.keys()):
         if key.startswith("_"): nn_config_dict.pop(key,None)
+        if key.startswith("A3C"): nn_config_dict.pop(key,None)
 
     config_dict = {**config_dict, **nn_config.__dict__}
 
