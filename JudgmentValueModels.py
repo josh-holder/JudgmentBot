@@ -3,6 +3,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.layers import concatenate, Masking
 from tensorflow.keras import Input, Model
+import nn_config
 
 def initBetModel(layer_sizes=[48,48,24]):
     """
@@ -24,7 +25,7 @@ def initBetModel(layer_sizes=[48,48,24]):
 
     model = Model(inputs=param_input,outputs=bet_value)
     model.compile(loss = tf.losses.MeanSquaredError(),
-                    optimizer = tf.optimizers.Adam())
+                    optimizer = tf.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE),)
     return model
 
 def initEvalModel(layer_sizes=[48,24,12]):
@@ -70,7 +71,7 @@ def initEvalModel(layer_sizes=[48,24,12]):
 
     model = Model(inputs=[next_players_input,parameters],outputs=win_value)
     model.compile(loss = tf.losses.MeanSquaredError(),
-                      optimizer = tf.optimizers.Adam())
+                      optimizer = tf.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE),)
 
     return model
 
@@ -128,7 +129,7 @@ def initActionModel(layer_sizes=[128,64,32,16]):
 
     model = Model(inputs=[next_players_input,winning_player_input,parameters],outputs=action_value)
     model.compile(loss = tf.losses.MeanSquaredError(),
-                      optimizer = tf.optimizers.Adam())
+                      optimizer = tf.optimizers.Adam(nn_config.LEARNING_RATE),)
 
     return model
 

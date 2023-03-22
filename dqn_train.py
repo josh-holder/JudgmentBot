@@ -92,7 +92,7 @@ def _build_parser():
 def initWandBTrack(args):
     #initialize weights and biases tracking
     run_name = f"{args.run_name}__{int(time.time())}"
-    config_dict = vars(args)
+    config_dict = vars(copy(args))
     config_dict.pop("track",None)
     config_dict.pop("wandb_project_name",None)
     config_dict.pop("wandb_entity",None)
