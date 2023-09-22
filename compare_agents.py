@@ -24,7 +24,7 @@ def _build_parser():
 def compareAgentsSubprocess(agents_to_compare, games_num, total_scores_queue, id):
     scores = [0,0,0,0]
     for game_num in range(games_num):
-        print(f"Simulating game {game_num+1}/{games_num} for process id {id}",end='\r')
+        # print(f"Simulating game {game_num+1}/{games_num} for process id {id}",end='\r')
         starting_agent = random.choice(range(len(agents_to_compare)))
 
         random_agent_order = agents_to_compare[starting_agent:]+agents_to_compare[:starting_agent]
@@ -50,8 +50,8 @@ def compareAgents(agents_to_compare,games_num,cores=1):
     processes = []
     for process_num in range(cores):
         # copy_of_agent_list = deepcopy(agents_to_compare)
-
         p = Process(target=compareAgentsSubprocess, args=(agents_to_compare, games_num//cores, total_scores_queue, process_num))
+        #Weird adam optimizer warning originates in the p.start() call below
         p.start()
         processes.append(p)
 

@@ -9,6 +9,8 @@ import numpy as np
 from nn_config import POINT_NORMALIZATION
 from collections import defaultdict as dd
 from copy import deepcopy
+import time
+import os
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 DEFAULT_HAND_SIZES = [1,2,3,4,5,6,7,8,9,10,11,12,13,12,11,10,9,8,7,6,5,4,3,2,1]
@@ -307,5 +309,9 @@ if __name__ == "__main__":
 
     # print("Final Scores: {}".format([score for score in scores]))
 
-    jg = JudgmentGame(game_verbose=1,agents=[DQNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
-    jg.playGame()
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    st = time.time()
+    for i in range(5):
+        jg = JudgmentGame(game_verbose=0,agents=[DQNAgent(0),DQNAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
+        jg.playGame()
+    print(time.time()-st)

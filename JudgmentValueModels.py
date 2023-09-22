@@ -50,7 +50,6 @@ def initEvalModel(layer_sizes=[48,24,12]):
     next_players_input = Input(shape=(3,7))
     next_players_mask = Masking(mask_value=-1.0)(next_players_input)
     next_players_LSTM = layers.LSTM(20, activation="relu", unroll=True)(next_players_mask)
-
     #Input for all other parameters, including cards still possible to play, trump, player info, etc.
     parameters = Input(shape=60)
 

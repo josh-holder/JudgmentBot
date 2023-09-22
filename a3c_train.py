@@ -14,13 +14,17 @@ from JudgmentGame import JudgmentGame
 from DQNAgent import DQNAgent
 from compare_agents import compareAgents
 from HumanBetAgent import HumanBetAgent
-from multiprocessing import cpu_count, Queue
+import multiprocessing
 import wandb
 from copy import copy, deepcopy
-from multiprocessing import Process, cpu_count, Queue
+from multiprocessing import cpu_count, Pool
 from JudgmentValueModels import initBetModel, initEvalModel, initActionModel
 
+#GPUs in general do not play nicely with multiprocessing, so we disable them here.
+#Also, performance did not seem to be improved by using GPUs, so we're not losing much.
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def _build_parser():
     parser = argparse.ArgumentParser(description='Run NN to generate ideal playing strategy for SPLT.')
@@ -166,8 +170,7 @@ def saveModels(run_name, bet_model, eval_model, act_model):
     act_model.save(act_model_path)
     print("Saved bet, eval, and action models.")
 
-def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_eval_weights, epsilon_choice, \
-                           accum_act_gradients_queue, accum_bet_gradients_queue, accum_eval_gradients_queue):
+def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_eval_weights, epsilon_choice):
     """
     Plays a game of Judgment with an asynchronous actor, given models and a randomly chosen epsilon value.
 
@@ -175,20 +178,16 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
     Along the way, it accumulates the gradients for the action, bet, and eval models, eventually applying them
     to the global weight network.
     """
-
-
     thread_bet_model = initBetModel()
     thread_bet_model.set_weights(curr_bet_weights)
-    print("b")
-
     thread_eval_model = initEvalModel()
     thread_eval_model.set_weights(curr_eval_weights)
-    print("e")
+    thread_action_model = initActionModel()
+    thread_action_model.set_weights(curr_action_weights)
 
-    print("starting thread")
-    thread_action_model = initActionModel([64,64,32,16])
-    # thread_action_model.set_weights(curr_action_weights)
-    print("a")
+    accum_act_gradients = [tf.zeros_like(var) for var in thread_action_model.trainable_variables]
+    accum_bet_gradients = [tf.zeros_like(var) for var in thread_bet_model.trainable_variables]
+    accum_eval_gradients = [tf.zeros_like(var) for var in thread_eval_model.trainable_variables]
 
     for game_num in range(nn_config.A3C_NUM_GAMES_PER_WORKER):
         print(f"Starting game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id}",end="\r")
@@ -203,8 +202,6 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             agent.eval_model = thread_eval_model
 
         bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectData()
-
-        print("\ndone playing game")
 
         #Compute loss on action model
         with tf.GradientTape() as action_tape:
@@ -265,21 +262,19 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
 
             eval_gradients = eval_tape.gradient(eval_losses, thread_eval_model.trainable_variables)
 
-        #Add gradients to queues
-        accum_act_gradients = accum_act_gradients_queue.get()
+        #Accumulate gradients
         accum_act_gradients = accum_act_gradients + action_gradients
-        accum_act_gradients_queue.put(accum_act_gradients)
-
-        accum_bet_gradients = accum_bet_gradients_queue.get()
         accum_bet_gradients = accum_bet_gradients + bet_gradients
-        accum_bet_gradients_queue.put(accum_bet_gradients)
-
-        accum_eval_gradients = accum_eval_gradients_queue.get()
         accum_eval_gradients = accum_eval_gradients + eval_gradients
-        accum_eval_gradients_queue.put(accum_eval_gradients)
+
+    return accum_act_gradients, accum_bet_gradients, accum_eval_gradients
 
 
 def trainAgentViaA3C():
+    #Without this, was having issues with initializing LSTM layers in subprocesses.
+    #https://github.com/keras-team/keras/issues/10095
+    multiprocessing.set_start_method('spawn')
+
     parser = _build_parser()
     args = parser.parse_args()
 
@@ -288,6 +283,8 @@ def trainAgentViaA3C():
     run_folder_path = os.path.join(os.getcwd(),args.run_name)
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
+
+    print("LOADING MODELS")
 
     curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model = loadModels(args)
 
@@ -304,62 +301,37 @@ def trainAgentViaA3C():
     num_global_updates = 0
     global_update_eval_interval = 1
 
+    best_model_beat_baseline_by = 0
+    iterations_without_improving_best_agent = 0
+
     while True:
-        processes = []
+        #Initialize gradients of zeros to eventually apply to the global network
+        act_gradients = [tf.zeros_like(var) for var in curr_action_model.trainable_variables]
+        bet_gradients = [tf.zeros_like(var) for var in curr_bet_model.trainable_variables]
+        eval_gradients = [tf.zeros_like(var) for var in curr_eval_model.trainable_variables]
 
-        accum_act_gradients_queue = Queue()
-        accum_act_gradients = [tf.zeros_like(var) for var in curr_action_model.trainable_variables]
-        accum_act_gradients_queue.put(accum_act_gradients)
-
-        accum_bet_gradients_queue = Queue()
-        accum_bet_gradients = [tf.zeros_like(var) for var in curr_bet_model.trainable_variables]
-        accum_bet_gradients_queue.put(accum_bet_gradients)
-
-        accum_eval_gradients_queue = Queue()
-        accum_eval_gradients = [tf.zeros_like(var) for var in curr_eval_model.trainable_variables]
-        accum_eval_gradients_queue.put(accum_eval_gradients)
-
-        for core_id in range(1):
+        #init arguments for each worker
+        game_arguments = []
+        for worker in range(nn_config.A3C_NUM_WORKERS):
             epsilon_choice = random.choice(epsilon_choices)
+            game_arguments.append((worker, curr_action_model.get_weights(), curr_bet_model.get_weights(), curr_eval_model.get_weights(), epsilon_choice))
 
-            # #Initialize thread models
-            # thread_action_model = tf.keras.models.clone_model(curr_action_model)
-            # thread_action_model.set_weights(curr_action_model.get_weights())
-            # thread_action_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
+        #Initialize a pool of processes to play games and accumulate gradients, each using a random choice of epsilon
+        with Pool(processes=nn_config.A3C_NUM_WORKERS) as p:
+            worker_accum_gradients = p.starmap(playJudgmentGameThread, game_arguments)
 
-            # thread_bet_model = tf.keras.models.clone_model(curr_bet_model)
-            # thread_bet_model.set_weights(curr_bet_model.get_weights())
-            # thread_bet_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
-
-            # thread_eval_model = tf.keras.models.clone_model(curr_eval_model)
-            # thread_eval_model.set_weights(curr_eval_model.get_weights())
-            # thread_eval_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
-
-            # playJudgmentGameThread(core_id, curr_action_model.get_weights(), curr_bet_model.get_weights(), curr_eval_model.get_weights(), epsilon_choice, \
-            #                        accum_act_gradients_queue, accum_bet_gradients_queue, accum_eval_gradients_queue)
-
-            p = Process(target=playJudgmentGameThread, args=(core_id, curr_action_model.get_weights(), curr_bet_model.get_weights(), curr_eval_model.get_weights(), epsilon_choice, \
-                                                      accum_act_gradients_queue, accum_bet_gradients_queue, accum_eval_gradients_queue,)) 
-
-            processes.append(p)
-            p.start()
-
-        for p in processes:
-            print("WAITING")
-            p.join()
-        print("Done")
-
-        #grab accumulated gradients
-        accum_act_gradients = accum_act_gradients_queue.get()
-        accum_bet_gradients = accum_bet_gradients_queue.get()
-        accum_eval_gradients = accum_eval_gradients_queue.get()
+        #Accumulate gradients from each worker
+        for (worker_accum_act_gradients, worker_accum_bet_gradients, worker_accum_eval_gradients) in worker_accum_gradients:
+            act_gradients = act_gradients + worker_accum_act_gradients
+            bet_gradients = bet_gradients + worker_accum_bet_gradients
+            eval_gradients = eval_gradients + worker_accum_eval_gradients
 
         optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=nn_config.LEARNING_RATE)
 
         #update weights by the accumulated gradients
-        optimizer.apply_gradients(zip(accum_act_gradients, curr_action_model.trainable_variables))
-        optimizer.apply_gradients(zip(accum_bet_gradients, curr_bet_model.trainable_variables))
-        optimizer.apply_gradients(zip(accum_eval_gradients, curr_eval_model.trainable_variables))
+        optimizer.apply_gradients(zip(act_gradients, curr_action_model.trainable_variables))
+        optimizer.apply_gradients(zip(bet_gradients, curr_bet_model.trainable_variables))
+        optimizer.apply_gradients(zip(eval_gradients, curr_eval_model.trainable_variables))
 
         num_global_updates += 1
 
@@ -376,10 +348,18 @@ def trainAgentViaA3C():
                 agent.bet_model = curr_bet_model
                 agent.eval_model = curr_eval_model
 
+                # agent.action_model.optimizer = optimizer
+                # agent.bet_model.optimizer = optimizer
+                # agent.eval_model.optimizer = optimizer
+
             for agent in agents_to_compare[2:]:
                 agent.action_model = baseline_action_model
                 agent.bet_model = baseline_bet_model
                 agent.eval_model = baseline_eval_model
+
+                # agent.action_model.optimizer = optimizer
+                # agent.bet_model.optimizer = optimizer
+                # agent.eval_model.optimizer = optimizer
 
             print("Performance against baseline agent:")
             avg_scores_against_baseline_agents = compareAgents(agents_to_compare,games_num=24, cores=cpu_count())
@@ -390,7 +370,7 @@ def trainAgentViaA3C():
             current_beat_baseline_by = new_agent_score_against_baseline - baseline_agent_score_against_new
 
             if (current_beat_baseline_by > best_model_beat_baseline_by):
-                print(f"!!!New agent improves on current best agent (beating baseline by {current_beat_baseline_by} instead of {best_model_beat_baseline_by}), so saving it.!!!")
+                print(f"!!!New agent improves on current best agent (beating baseline by {current_beat_baseline_by} instead of {best_model_beat_baseline_by}), so saving it!!!")
                 best_bet_weights = copy(curr_bet_model.get_weights())
                 best_action_weights = copy(curr_action_model.get_weights())
                 best_eval_weights = copy(curr_eval_model.get_weights())
