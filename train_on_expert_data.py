@@ -11,7 +11,7 @@ import os
 import pickle
 from math import floor
 import time
-from JudgmentUtils import postProcessTrainData, postProcessBetTrainData
+from JudgmentDataUtils import postProcessTrainData, postProcessBetTrainData
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]

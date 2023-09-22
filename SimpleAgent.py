@@ -1,6 +1,6 @@
 from JudgmentAgent import JudgmentAgent
 import random
-from JudgmentUtils import calcSubroundAdjustedValue
+from JudgmentDataUtils import calcSubroundAdjustedValue
 
 play_verbose = 0
 

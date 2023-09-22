@@ -1,6 +1,6 @@
 #Judgment agent class
 import random
-from JudgmentUtils import calcSubroundAdjustedValue
+from JudgmentDataUtils import calcSubroundAdjustedValue
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 
@@ -130,7 +130,8 @@ class JudgmentAgent(object):
                 return point_change
 
     def reset(self):
-        """ Resets agent to prepare for new round
+        """
+        Resets agent to prepare for new round
         """
         self.hand = []
         self.available_cards = []

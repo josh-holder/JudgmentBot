@@ -9,7 +9,7 @@ import time
 from matplotlib import pyplot as plt
 import tensorflow as tf
 from copy import deepcopy
-from JudgmentUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
+from JudgmentDataUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
 from JudgmentGame import JudgmentGame
 from DQNAgent import DQNAgent
 from compare_agents import compareAgents

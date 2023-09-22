@@ -1,5 +1,5 @@
 from SimpleAgent import SimpleAgent
-from JudgmentUtils import convertSubroundSituationToEvalState
+from JudgmentDataUtils import convertSubroundSituationToEvalState
 import os
 from tensorflow import keras
 import tensorflow as tf

@@ -1,4 +1,4 @@
-from JudgmentUtils import convertSubroundSituationToEvalState, convertSubroundSituationToActionState, convertBetSituationToBetState
+from JudgmentDataUtils import convertSubroundSituationToEvalState, convertSubroundSituationToActionState, convertBetSituationToBetState
 from SimpleAgent import SimpleAgent
 from HumanBetAgent import HumanBetAgent
 from tensorflow import keras
@@ -88,63 +88,8 @@ class DQNAgent(SimpleAgent):
 
     def chooseCard(self, srs):
         """
-        Given a subround situation, determines what card to play:
-
-        --EVALUATION Q() FUNCTION:--
-        State input information:
-        - cards still possible to play (52)
-        - trump (4)
-        - Player played info - RNN architecture
-            - value of card played (26) (0 if off-suit, 1-13 if secondary suit, 14-26 if trump suit)
-            - player relative points (1)
-            - player bet (1)
-            - player earned (1)
-            - suits remaining (4)
-        - Players remaining architecture - RNN architecture
-            - player relative points (1)
-            - player bet (1)
-            - player earned (1)
-            - suits remaining (4)
-        -Player bet
-        -Player earned
-
-        Actions - 52 cards in hand (see connect 4 implementation for removal of impossible moves)
-        
-        Neural network learns action value function for particular state-action pair - 0 if loss, 1 if win given a particular card.
-        
-        After the end of every round, evaluate loss on what you predicted vs what you ended up with
-        Good reward signal!
-        --------------------------
-        ACTION Q FUNCTION - predicted reward of given action (in terms of actual points)
-        Inputs:
-        - Probabilities of winning with every card in hand from evaluation network
-        - player bet
-        - player earned
-        - cards still possible to play (52)
-        - trump (4)
-
-        (or just two heads, trained slightly differently? probably this)
-        (Read AlphaGo paper)
-
-        Output: card to play from hand
-
-        --BET MODEL (Action value) ---------
-        - same inputs as current bet model
-        -(+points, look at transfer learning) (current data is zero point differential, retrain)
-        ------------------------------------
-
-        Model is given.
-        First start off-policy with SimpleAgent epsilon-greedy actions,
-        epsilon-greedy Neural-Network based bet actions to kickstart training.
-        -After each timestep, run gradient descent on evaluation Q function
-        -After each round, run gradient descent on action Q function
-        -After each round, run gradient descent on bet Q function
-        Run until near even with HumanBetAgent.
-        Then, run fully model-free for finetuning until completion.
-
-        Questions:
-        - How to go about training RNNs for input into evaluation function
-        - How to go about adding multiple heads to one function, using one in the other?
+        Given a subround situation, determines what card to play,
+        either epsilon-greedily or greedily, and returns it.
         """
         best_card = None
         best_act_val = -np.inf
