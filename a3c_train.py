@@ -22,8 +22,8 @@ from JudgmentValueModels import initBetModel, initEvalModel, initActionModel
 
 #GPUs in general do not play nicely with multiprocessing, so we disable them here.
 #Also, performance did not seem to be improved by using GPUs, so we're not losing much.
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+tf.config.set_visible_devices([], 'GPU')
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def _build_parser():
@@ -411,36 +411,4 @@ def trainAgentViaA3C():
             plt.clf()
 
 if __name__ == "__main__":
-    # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])
-    # bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData("run1")
-
     trainAgentViaA3C()
-
-    # bet_data, eval_data, state_transitions = jg.playGameAndTrackStateTransitions()
-
-    # for state_transition in state_transitions:
-    #     start_srs = state_transition[0]
-    #     action = state_transition[1]
-    #     final_srs = state_transition[2]
-
-    #     order_position = len(start_srs.card_stack)
-    #     print(order_position)
-    #     curr_agent = start_srs.agents[order_position]
-    #     print(f"Start hand:")
-    #     for card in curr_agent.hand:
-    #         print(card.name)
-
-    #     print(f"Playing card: {action.name}")
-    #     if type(final_srs) != type(0.0):
-    #         order_position = len(final_srs.card_stack)
-    #         curr_agent = final_srs.agents[order_position]
-    #         print(f"Final hand:")
-    #         for card in curr_agent.hand:
-    #             print(card.name)
-    #     else:
-    #         print(f"Round over. Reward = {final_srs}")
-
-    #     print("~~~~~~~~~")
-
-    # for bet_dat in bet_data:
-    #     print(bet_dat[0][59],bet_dat[1])
