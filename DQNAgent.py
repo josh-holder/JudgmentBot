@@ -38,13 +38,16 @@ class DQNAgent(SimpleAgent):
 
         if load_models:
             bet_model_path = os.path.join(os.getcwd(),bet_model_name)
-            self.bet_model = keras.models.load_model(bet_model_path)
+            self.bet_model = keras.models.load_model(bet_model_path, compile=False)
+            self.bet_model.compile()
 
             eval_model_path = os.path.join(os.getcwd(),eval_model_name)
-            self.eval_model = keras.models.load_model(eval_model_path)
+            self.eval_model = keras.models.load_model(eval_model_path, compile=False)
+            self.eval_model.compile()
 
             action_model_path = os.path.join(os.getcwd(),action_model_name)
-            self.action_model = keras.models.load_model(action_model_path)         
+            self.action_model = keras.models.load_model(action_model_path, compile=False)
+            self.action_model.compile()    
 
         else:
             self.action_model = None

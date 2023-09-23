@@ -183,15 +183,12 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
     """
     thread_bet_model = initBetModel()
     thread_bet_model.set_weights(curr_bet_weights)
-    thread_bet_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
 
     thread_eval_model = initEvalModel()
     thread_eval_model.set_weights(curr_eval_weights)
-    thread_eval_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
 
     thread_action_model = initActionModel()
     thread_action_model.set_weights(curr_action_weights)
-    thread_action_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
 
     accum_act_gradients = [tf.zeros_like(var) for var in thread_action_model.trainable_variables]
     accum_bet_gradients = [tf.zeros_like(var) for var in thread_bet_model.trainable_variables]
@@ -355,18 +352,18 @@ def trainAgentViaA3C():
                 agent.bet_model = curr_bet_model
                 agent.eval_model = curr_eval_model
 
-                # agent.action_model.optimizer = optimizer
-                # agent.bet_model.optimizer = optimizer
-                # agent.eval_model.optimizer = optimizer
+                agent.action_model.compile()
+                agent.bet_model.compile()
+                agent.eval_model.compile()
 
             for agent in agents_to_compare[2:]:
                 agent.action_model = baseline_action_model
                 agent.bet_model = baseline_bet_model
                 agent.eval_model = baseline_eval_model
 
-                # agent.action_model.optimizer = optimizer
-                # agent.bet_model.optimizer = optimizer
-                # agent.eval_model.optimizer = optimizer
+                agent.action_model.compile()
+                agent.bet_model.compile()
+                agent.eval_model.compile()
 
             print("Performance against baseline agent:")
             avg_scores_against_baseline_agents = compareAgents(agents_to_compare,games_num=24, cores=cpu_count())

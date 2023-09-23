@@ -8,6 +8,8 @@ from copy import deepcopy
 from multiprocessing import Process, cpu_count, Pool, Manager, Queue
 import time
 import argparse
+import absl.logging
+absl.logging.set_verbosity(absl.logging.ERROR)
 
 def _build_parser():
     parser = argparse.ArgumentParser(description='Compare Judgement Agents.')
