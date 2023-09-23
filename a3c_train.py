@@ -173,13 +173,15 @@ def saveModels(run_name, bet_model, eval_model, act_model):
     act_model.save(act_model_path)
     print("Saved bet, eval, and action models.")
 
-def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_eval_weights, epsilon_choice):
+def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_eval_weights, epsilon_choice, track):
     """
     Plays a game of Judgment with an asynchronous actor, given models and a randomly chosen epsilon value.
 
     At the end of each round of the game, the actor will compute a gradient update of its current weights.
-    Along the way, it accumulates the gradients for the action, bet, and eval models, eventually applying them
-    to the global weight network.
+    Along the way, it accumulates the gradients for the action, bet, and eval models, eventually returning them
+    to be applied to the global weight network.
+
+    It also keeps track of how many training examples it has seen, which is returned to be tracked by the main thread.
     """
     thread_bet_model = initBetModel()
     thread_bet_model.set_weights(curr_bet_weights)
@@ -193,6 +195,10 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
     accum_act_gradients = [tf.zeros_like(var) for var in thread_action_model.trainable_variables]
     accum_bet_gradients = [tf.zeros_like(var) for var in thread_bet_model.trainable_variables]
     accum_eval_gradients = [tf.zeros_like(var) for var in thread_eval_model.trainable_variables]
+
+    act_training_examples = 0
+    bet_training_examples = 0
+    eval_training_examples = 0
 
     for game_num in range(nn_config.A3C_NUM_GAMES_PER_WORKER):
         print(f"Starting game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id}",end="\r")
@@ -226,6 +232,8 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             action_loss = tf.keras.losses.MeanSquaredError()
             action_losses = action_loss(action_data_outputs, action_predictions)
 
+            if track: wandb.log({"eval/action_network_loss":np.mean(action_losses)})
+
             action_gradients = action_tape.gradient(action_losses, thread_action_model.trainable_variables)
 
         #Compute loss on bet model
@@ -250,6 +258,8 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             bet_loss = tf.keras.losses.MeanSquaredError()
             bet_losses = bet_loss(bet_data_outputs, bet_predictions)
 
+            if track: wandb.log({"eval/bet_network_loss":np.mean(bet_losses)})
+
             bet_gradients = bet_tape.gradient(bet_losses, thread_bet_model.trainable_variables)
 
         #Compute loss on eval model
@@ -267,6 +277,8 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             eval_loss = tf.keras.losses.MeanSquaredError()
             eval_losses = eval_loss(eval_data_outputs, eval_predictions)
 
+            if track: wandb.log({"eval/eval_network_loss":np.mean(eval_losses)})
+
             eval_gradients = eval_tape.gradient(eval_losses, thread_eval_model.trainable_variables)
 
         #Accumulate gradients
@@ -274,7 +286,12 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
         accum_bet_gradients = accum_bet_gradients + bet_gradients
         accum_eval_gradients = accum_eval_gradients + eval_gradients
 
-    return accum_act_gradients, accum_bet_gradients, accum_eval_gradients
+        act_training_examples += len(action_predictions)
+        bet_training_examples += len(bet_predictions)
+        eval_training_examples += len(eval_predictions)
+
+    return accum_act_gradients, accum_bet_gradients, accum_eval_gradients,\
+            act_training_examples, bet_training_examples, eval_training_examples
 
 
 def trainAgentViaA3C():
@@ -293,10 +310,9 @@ def trainAgentViaA3C():
 
     curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model = loadModels(args)
 
-    performance_against_best_agents = []
-    new_states_to_achieve_performances = []
-
-    new_state_action_pairs_trained_on = 0
+    state_action_examples_trained_on = 0
+    bet_examples_trained_on = 0
+    eval_examples_trained_on = 0
 
     best_bet_weights = copy(curr_bet_model.get_weights())
     best_action_weights = copy(curr_action_model.get_weights())
@@ -318,17 +334,27 @@ def trainAgentViaA3C():
         game_arguments = []
         for worker in range(nn_config.A3C_NUM_WORKERS):
             epsilon_choice = random.choice(epsilon_choices)
-            game_arguments.append((worker, curr_action_model.get_weights(), curr_bet_model.get_weights(), curr_eval_model.get_weights(), epsilon_choice))
+            game_arguments.append((worker, curr_action_model.get_weights(), curr_bet_model.get_weights(), curr_eval_model.get_weights(), epsilon_choice, args.track))
 
         #Initialize a pool of processes to play games and accumulate gradients, each using a random choice of epsilon
         with Pool(processes=nn_config.A3C_NUM_WORKERS) as p:
             worker_accum_gradients = p.starmap(playJudgmentGameThread, game_arguments)
 
         #Accumulate gradients from each worker
-        for (worker_accum_act_gradients, worker_accum_bet_gradients, worker_accum_eval_gradients) in worker_accum_gradients:
+        for (worker_accum_act_gradients, worker_accum_bet_gradients, worker_accum_eval_gradients,\
+             worker_act_training_examples, worker_bet_training_examples, worker_eval_training_examples) in worker_accum_gradients:
             act_gradients = act_gradients + worker_accum_act_gradients
             bet_gradients = bet_gradients + worker_accum_bet_gradients
             eval_gradients = eval_gradients + worker_accum_eval_gradients
+
+            state_action_examples_trained_on += worker_act_training_examples
+            bet_examples_trained_on += worker_bet_training_examples
+            eval_examples_trained_on += worker_eval_training_examples
+
+        if args.track:
+            wandb.log({"eval/state_action_examples_trained_on": worker_act_training_examples,
+                       "eval/bet_examples_trained_on": worker_bet_training_examples,
+                       "eval/eval_examples_trained_on": worker_eval_training_examples})
 
         optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=nn_config.LEARNING_RATE)
 
@@ -396,51 +422,7 @@ def trainAgentViaA3C():
                     iterations_without_improving_best_agent = 0
                 else: print(f"~~~New agent does not improve on best agent (beat baseline by {current_beat_baseline_by} instead of {best_model_beat_baseline_by}), so increase iterations without improving on best to {iterations_without_improving_best_agent} and continue training.~~~")
 
-            if args.track: wandb.log({"eval/score_diff_against_baseline": current_beat_baseline_by, "eval/state_transitions": new_state_action_pairs_trained_on})
-
-            #save data for progress plots
-            new_states_to_achieve_performances.append(new_state_action_pairs_trained_on)
-            performance_against_best_agents.append(current_beat_baseline_by)
-            plt.plot(new_states_to_achieve_performances,performance_against_best_agents)
-            plt.xlabel("Number of new training examples")
-            baseline_model_name = args.action_model_path.split("/")[0]
-            plt.ylabel(f"Avg. Score Diff vs. Baseline Model ({baseline_model_name})")
-
-            progress_graph_path = os.path.join(os.getcwd(), args.run_name, "performance_vs_baseline_agent_over_time.png")
-            plt.savefig(progress_graph_path)
-            plt.clf()
+            if args.track: wandb.log({"eval/score_diff_against_baseline": current_beat_baseline_by})
 
 if __name__ == "__main__":
-    # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])
-    # bet_exp_data, eval_exp_data, state_transition_bank = loadExperienceData("run1")
-
     trainAgentViaA3C()
-
-    # bet_data, eval_data, state_transitions = jg.playGameAndTrackStateTransitions()
-
-    # for state_transition in state_transitions:
-    #     start_srs = state_transition[0]
-    #     action = state_transition[1]
-    #     final_srs = state_transition[2]
-
-    #     order_position = len(start_srs.card_stack)
-    #     print(order_position)
-    #     curr_agent = start_srs.agents[order_position]
-    #     print(f"Start hand:")
-    #     for card in curr_agent.hand:
-    #         print(card.name)
-
-    #     print(f"Playing card: {action.name}")
-    #     if type(final_srs) != type(0.0):
-    #         order_position = len(final_srs.card_stack)
-    #         curr_agent = final_srs.agents[order_position]
-    #         print(f"Final hand:")
-    #         for card in curr_agent.hand:
-    #             print(card.name)
-    #     else:
-    #         print(f"Round over. Reward = {final_srs}")
-
-    #     print("~~~~~~~~~")
-
-    # for bet_dat in bet_data:
-    #     print(bet_dat[0][59],bet_dat[1])

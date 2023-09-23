@@ -78,7 +78,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
     [lstm_input for players still to go, 
     [current winner relative points, current winner bet, current winner earned (normalized),
     {-1,1} binary encoding of cards still in game, one-hot encoding of action card, one-hot encoding of trump suit,
-    agent bet, agent percentage of subrounds won, number of cards in hand]]
+    agent bet, agent evaluation of subround winning chance, number of cards in hand]]
     """
     next_agent_index = len(srs.card_stack)+1
     remaining_agents = srs.agents[next_agent_index:]
