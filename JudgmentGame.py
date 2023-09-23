@@ -3,7 +3,7 @@ from deck_of_cards import deck_of_cards
 from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent
 from HumanBetAgent import HumanBetAgent
-from DQNAgent import copyDQNAgentsWithoutModels, DQNAgent
+from NNAgent import copyNNAgentsWithoutModels, NNAgent
 from JudgmentDataUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState, BetSituation, SubroundSituation
 import numpy as np
 from nn_config import POINT_NORMALIZATION
@@ -184,13 +184,13 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
+            srs = SubroundSituation(hand_size,[],trump,0,copyNNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
                 srs.card_stack = []
                 srs.highest_adjusted_val = 0
-                srs.agents = copyDQNAgentsWithoutModels(turn_order)
+                srs.agents = copyNNAgentsWithoutModels(turn_order)
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
@@ -322,13 +322,13 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,copyDQNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
+            srs = SubroundSituation(hand_size,[],trump,0,copyNNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
                 srs.card_stack = []
                 srs.highest_adjusted_val = 0
-                srs.agents = copyDQNAgentsWithoutModels(turn_order)
+                srs.agents = copyNNAgentsWithoutModels(turn_order)
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
@@ -444,6 +444,6 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     st = time.time()
     for i in range(5):
-        jg = JudgmentGame(game_verbose=0,agents=[DQNAgent(0),DQNAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
+        jg = JudgmentGame(game_verbose=0,agents=[NNAgent(0),NNAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
         jg.playGame()
     print(time.time()-st)

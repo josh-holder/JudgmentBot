@@ -9,7 +9,7 @@ import tensorflow as tf
 import keras
 from JudgmentDataUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
 from JudgmentGame import JudgmentGame
-from DQNAgent import DQNAgent
+from NNAgent import NNAgent
 from compare_agents import compareAgents
 from HumanBetAgent import HumanBetAgent
 import multiprocessing
@@ -203,8 +203,8 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
     for game_num in range(nn_config.A3C_NUM_GAMES_PER_WORKER):
         print(f"Starting game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id}",end="\r")
         #Initialize game
-        jg = JudgmentGame([DQNAgent(0,epsilon_choice,load_models=False), DQNAgent(1,epsilon_choice,load_models=False), \
-                           DQNAgent(2,epsilon_choice,load_models=False), DQNAgent(3,epsilon_choice,load_models=False)])
+        jg = JudgmentGame([NNAgent(0,epsilon_choice,load_models=False), NNAgent(1,epsilon_choice,load_models=False), \
+                           NNAgent(2,epsilon_choice,load_models=False), NNAgent(3,epsilon_choice,load_models=False)])
         
         #Set models for each agent
         for agent in jg.agents:
@@ -372,7 +372,7 @@ def trainAgentViaA3C():
             print(f"{nn_config.A3C_GLOBAL_NET_UPDATE_EVAL_FREQ} global updates have occured, so evaluating performance.")
 
             #epsilon is zero for evaluation. Load new models into agents 0 and 1, best models into agents 2 and 3.
-            agents_to_compare = [DQNAgent(0,load_models=False),DQNAgent(1,load_models=False),DQNAgent(2,load_models=False),DQNAgent(3,load_models=False)]
+            agents_to_compare = [NNAgent(0,load_models=False),NNAgent(1,load_models=False),NNAgent(2,load_models=False),NNAgent(3,load_models=False)]
             for agent in agents_to_compare[0:2]:
                 agent.action_model = curr_action_model
                 agent.bet_model = curr_bet_model
