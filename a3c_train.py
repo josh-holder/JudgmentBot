@@ -1,5 +1,3 @@
-from collections import deque
-import pickle
 import os
 import nn_config
 import argparse
@@ -8,7 +6,7 @@ import random
 import time
 from matplotlib import pyplot as plt
 import tensorflow as tf
-from copy import deepcopy
+import keras
 from JudgmentDataUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
 from JudgmentGame import JudgmentGame
 from DQNAgent import DQNAgent
@@ -19,12 +17,13 @@ import wandb
 from copy import copy, deepcopy
 from multiprocessing import cpu_count, Pool
 from JudgmentValueModels import initBetModel, initEvalModel, initActionModel
+import absl.logging
+absl.logging.set_verbosity(absl.logging.ERROR)
 
 #GPUs in general do not play nicely with multiprocessing, so we disable them here.
 #Also, performance did not seem to be improved by using GPUs, so we're not losing much.
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def _build_parser():
     parser = argparse.ArgumentParser(description='Run NN to generate ideal playing strategy for SPLT.')
@@ -113,40 +112,44 @@ def loadModels(args):
     Given command line arguments, loads current, baseline, and target models.
     """
     import keras
+    print("loading models")
     if args.models_path == None:
         curr_bet_model_path = os.path.join(os.getcwd(),args.bet_model_path)
-        curr_bet_model = keras.models.load_model(curr_bet_model_path)
+        curr_bet_model = keras.models.load_model(curr_bet_model_path, compile=False)
         print(f"Loaded current bet model from {curr_bet_model_path}")
 
         curr_eval_model_path = os.path.join(os.getcwd(),args.eval_model_path)
-        curr_eval_model = keras.models.load_model(curr_eval_model_path)
+        curr_eval_model = keras.models.load_model(curr_eval_model_path, compile=False)
         print(f"Loaded current eval model from {curr_eval_model_path}")
 
         curr_action_model_path = os.path.join(os.getcwd(),args.action_model_path)
-        curr_action_model = keras.models.load_model(curr_action_model_path)
+        curr_action_model = keras.models.load_model(curr_action_model_path, compile=False)
         print(f"Loaded current action model fron {curr_action_model_path}")
     
     else:
         curr_bet_model_path = os.path.join(os.getcwd(),args.models_path,"best_bet_model")
-        curr_bet_model = keras.models.load_model(curr_bet_model_path)
+        curr_bet_model = keras.models.load_model(curr_bet_model_path, compile=False)
         print(f"Loaded current bet model from {curr_bet_model_path}")
 
         curr_eval_model_path = os.path.join(os.getcwd(),args.models_path,"best_eval_model")
-        curr_eval_model = keras.models.load_model(curr_eval_model_path)
+        curr_eval_model = keras.models.load_model(curr_eval_model_path, compile=False)
         print(f"Loaded current eval model from {curr_eval_model_path}")
 
         curr_action_model_path = os.path.join(os.getcwd(),args.models_path,"best_act_model")
-        curr_action_model = keras.models.load_model(curr_action_model_path)
+        curr_action_model = keras.models.load_model(curr_action_model_path, compile=False)
         print(f"Loaded current action model fron {curr_action_model_path}")
 
     baseline_bet_model = tf.keras.models.clone_model(curr_bet_model)
     baseline_bet_model.set_weights(curr_bet_model.get_weights())
+    baseline_bet_model.compile()
 
     baseline_eval_model = tf.keras.models.clone_model(curr_eval_model)
     baseline_eval_model.set_weights(curr_eval_model.get_weights())
+    baseline_eval_model.compile()
 
     baseline_action_model = tf.keras.models.clone_model(curr_action_model)
     baseline_action_model.set_weights(curr_action_model.get_weights())
+    baseline_action_model.compile()
 
     for layer in baseline_bet_model.layers:
         layer.trainable = False
@@ -180,10 +183,15 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
     """
     thread_bet_model = initBetModel()
     thread_bet_model.set_weights(curr_bet_weights)
+    thread_bet_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
+
     thread_eval_model = initEvalModel()
     thread_eval_model.set_weights(curr_eval_weights)
+    thread_eval_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
+
     thread_action_model = initActionModel()
     thread_action_model.set_weights(curr_action_weights)
+    thread_action_model.compile(loss="mean_squared_error", optimizer=keras.optimizers.Adam(learning_rate=nn_config.LEARNING_RATE))
 
     accum_act_gradients = [tf.zeros_like(var) for var in thread_action_model.trainable_variables]
     accum_bet_gradients = [tf.zeros_like(var) for var in thread_bet_model.trainable_variables]
@@ -201,7 +209,9 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             agent.bet_model = thread_bet_model
             agent.eval_model = thread_eval_model
 
+        start = time.time()
         bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectData()
+        print(f"Game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id} took {time.time()-start} seconds.")
 
         #Compute loss on action model
         with tf.GradientTape() as action_tape:
@@ -284,8 +294,6 @@ def trainAgentViaA3C():
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
 
-    print("LOADING MODELS")
-
     curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model = loadModels(args)
 
     performance_against_best_agents = []
@@ -299,7 +307,6 @@ def trainAgentViaA3C():
 
     epsilon_choices = [0.3, 0.4, 0.2]
     num_global_updates = 0
-    global_update_eval_interval = 1
 
     best_model_beat_baseline_by = 0
     iterations_without_improving_best_agent = 0
@@ -337,9 +344,9 @@ def trainAgentViaA3C():
 
         print(f"Finished global update {num_global_updates}!")
 
-        if num_global_updates % global_update_eval_interval == 0:
+        if num_global_updates % nn_config.A3C_GLOBAL_NET_UPDATE_FREQ == 0:
             #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
-            print(f"{global_update_eval_interval} global updates have occured, so evaluating performance.")
+            print(f"{nn_config.A3C_GLOBAL_NET_UPDATE_FREQ} global updates have occured, so evaluating performance.")
 
             #epsilon is zero for evaluation. Load new models into agents 0 and 1, best models into agents 2 and 3.
             agents_to_compare = [DQNAgent(0,load_models=False),DQNAgent(1,load_models=False),DQNAgent(2,load_models=False),DQNAgent(3,load_models=False)]
