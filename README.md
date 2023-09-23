@@ -15,7 +15,7 @@ Finally, a "game" consists of many rounds (i.e. Judgment consists of rounds wher
 ### Action agent
 This is the neural network which evaluates the expected point value of playing a card in a given situation.
 
-The input to this model is an Action state (see below), and the output is an expected value. DQNAgent evaluates this function on all cards in its hand, and selects the one with the highest value (or selects epsilon-greedily.)
+The input to this model is an Action state (see below), and the output is an expected value. NNAgent evaluates this function on all cards in its hand, and selects the one with the highest value (or selects epsilon-greedily.)
 
 ### Evaluation agent
 This is a neural network which performs an intermediate task - it evaluates the odds which playing a card will win you the round.

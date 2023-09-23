@@ -1,12 +1,12 @@
 from multiprocessing import Process, cpu_count, Pool, Manager
-from DQNAgent import DQNAgent
+from NNAgent import NNAgent
 from HumanBetAgent import HumanBetAgent
 from JudgmentGame import JudgmentGame
 import time
 import os
 
 def gamePlayingProcess(i, num_games, data_dict):
-    # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])
+    # jg = JudgmentGame(agents=[NNAgent(0),NNAgent(1),NNAgent(2),NNAgent(3)])
     jg = JudgmentGame(agents=[HumanBetAgent(0,use_eval_model=True),HumanBetAgent(1,use_eval_model=True),HumanBetAgent(2,use_eval_model=True),HumanBetAgent(3,use_eval_model=True)])
 
     data = []
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     processes = []
     start = time.time()
 
-    # jg = JudgmentGame(agents=[DQNAgent(1),DQNAgent(2),DQNAgent(3),DQNAgent(3)])
+    # jg = JudgmentGame(agents=[NNAgent(1),NNAgent(2),NNAgent(3),NNAgent(3)])
     # for i in range(9):
     #     jg.playGameAndCollectData()
     #     jg.resetGame()

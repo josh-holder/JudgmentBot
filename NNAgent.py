@@ -10,16 +10,15 @@ import numpy as np
 import os
 import random
 import copy
-import pickle
 
-def copyDQNAgentsWithoutModels(init_agents):
+def copyNNAgentsWithoutModels(init_agents):
     """
-    Given a list of DQN agents, copies them and returns them without their models attached.
+    Given a list of NN agents, copies them and returns them without their models attached.
     Does this to save computation when copying models.
     """
     new_agents = []
     for init_agent in init_agents:
-        new_agent = DQNAgent(init_agent.id,load_models=False)
+        new_agent = NNAgent(init_agent.id,load_models=False)
         new_agent.points = init_agent.points
         new_agent.hand = copy.deepcopy(init_agent.hand)
         new_agent.subrounds_won = init_agent.subrounds_won
@@ -31,20 +30,23 @@ def copyDQNAgentsWithoutModels(init_agents):
 
     return new_agents
 
-class DQNAgent(SimpleAgent):
+class NNAgent(SimpleAgent):
     def __init__(self,id,epsilon=0,load_models=True,bet_model_name="bet_expert_train_model",eval_model_name="eval_expert_train_model",action_model_name="action_expert_train_model"):
         super().__init__(id)
         self.epsilon = epsilon
 
         if load_models:
             bet_model_path = os.path.join(os.getcwd(),bet_model_name)
-            self.bet_model = keras.models.load_model(bet_model_path)
+            self.bet_model = keras.models.load_model(bet_model_path, compile=False)
+            self.bet_model.compile()
 
             eval_model_path = os.path.join(os.getcwd(),eval_model_name)
-            self.eval_model = keras.models.load_model(eval_model_path)
+            self.eval_model = keras.models.load_model(eval_model_path, compile=False)
+            self.eval_model.compile()
 
             action_model_path = os.path.join(os.getcwd(),action_model_name)
-            self.action_model = keras.models.load_model(action_model_path)         
+            self.action_model = keras.models.load_model(action_model_path, compile=False)
+            self.action_model.compile()    
 
         else:
             self.action_model = None
@@ -176,3 +178,127 @@ class DQNAgent(SimpleAgent):
         else:
             self.bet = best_bet
             return self.bet
+        
+    def chooseCardAndReturnNetworkEvals(self, srs):
+        """
+        Given a subround situation, determines what card to play,
+        either epsilon-greedily or greedily, and returns it.
+
+        Also returns the NN evaluation of the subround situation for
+        the chosen card, so we can use that in computing gradients
+        in A3C without calling the NN again.
+        """
+        best_card = None
+        best_act_val = -np.inf
+        best_card_eval = None
+        card_evals = []
+        card_act_vals = []
+        for card in self.available_cards:
+            act_state = convertSubroundSituationToActionState(srs,self,card)
+
+            act_state = [act_state_component[np.newaxis,:] for act_state_component in act_state]
+            act_val = self.action_model(act_state)
+
+            card_evals.append(float(act_state[2][:,110]))
+            card_act_vals.append(act_val)
+
+            if act_val > best_act_val:
+                best_card = card
+                best_act_val = act_val
+                best_card_eval = float(act_state[2][:,110])
+
+        #If epsilon is not zero, select action epsilon-greedily.
+        if self.epsilon > 0:
+            rand_num = random.random()
+            num_valid_actions = len(self.available_cards)
+
+            threshold = 0
+            old_threshold = 0
+
+            for card, card_act_val, card_eval in zip(self.available_cards, card_act_vals, card_evals):
+                if card == best_card:
+                    threshold += (1-self.epsilon)+self.epsilon/num_valid_actions
+                else:
+                    threshold += self.epsilon/num_valid_actions
+
+                if old_threshold <= rand_num and rand_num <= threshold:
+                    return card, card_act_val, card_eval
+                else:
+                    old_threshold=threshold
+
+            raise Exception(f"ERROR: Agent {self.id} failed to select a card.")
+
+        #If epsilon=0, return greedy action
+        else:
+            return best_card, best_act_val, best_card_eval
+
+    def playCardAndReturnNetworkEvals(self,srs):
+        self.determineCardOptions(srs)
+        chosen_card, card_act_val, card_eval = self.chooseCardAndReturnNetworkEvals(srs)
+
+        self.hand.remove(chosen_card)
+        return chosen_card, card_act_val, card_eval
+    
+    def makeBetAndReturnNetworkEval(self, bs):
+        possible_bets = list(range(bs.hand_size+1))
+        if len(bs.other_bets) == (len(bs.agents)-1):
+            invalid_bet = bs.hand_size-sum(bs.other_bets)
+            if invalid_bet in possible_bets: possible_bets.remove(invalid_bet)
+
+        best_bet = None
+        best_bet_val = -np.inf
+
+        bet_evals = []
+        for bet in possible_bets:
+            bet_state = convertBetSituationToBetState(bs, self, bet)
+            # bet_state = [bet_state_component[np.newaxis,:] for bet_state_component in bet_state]
+            bet_state = bet_state[np.newaxis,:]
+            bet_val = self.bet_model(bet_state)
+
+            bet_evals.append(bet_val)
+
+            if bet_val > best_bet_val:
+                best_bet = bet
+                best_bet_val = bet_val
+            #If the bet is larger than 4 and it's not better than the last one, stop evaluating
+            elif bet > 4:
+                break
+        
+        #If epsilon is not zero, select bet epsilon-greedily.
+        if self.epsilon > 0:
+            rand_num = random.random()
+            num_valid_bets = len(possible_bets)
+
+            threshold = 0
+            old_threshold = 0
+
+            for bet_num, bet in enumerate(possible_bets):
+                if bet == best_bet:
+                    threshold += (1-self.epsilon)+self.epsilon/num_valid_bets
+                else:
+                    threshold += self.epsilon/num_valid_bets
+
+                if old_threshold <= rand_num and rand_num <= threshold:
+                    self.bet = bet
+
+                    #If we hadn't previously evaluated the value of the bet (because it was over 4)
+                    #then we need to evaluate and return it now
+                    if bet_num >= len(bet_evals):
+                        bet_state = convertBetSituationToBetState(bs, self, bet)
+                        # bet_state = [bet_state_component[np.newaxis,:] for bet_state_component in bet_state]
+                        bet_state = bet_state[np.newaxis,:]
+                        bet_val = self.bet_model(bet_state)
+
+                        return self.bet, bet_val
+                    #Otherwise, return the bet and it's evaluation
+                    else:
+                        return self.bet, bet_evals[bet_num]
+                else:
+                    old_threshold=threshold
+            
+            raise Exception(f"ERROR: Agent {self.id} failed to make a bet.")
+        
+        #If epsilon=0, return greedy bet
+        else:
+            self.bet = best_bet
+            return self.bet, best_bet_val

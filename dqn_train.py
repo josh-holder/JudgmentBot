@@ -13,7 +13,7 @@ from copy import copy, deepcopy
 from JudgmentDataUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
 from JudgmentValueModels import initActionModel, initBetModel, initEvalModel 
 from JudgmentGame import JudgmentGame
-from DQNAgent import DQNAgent
+from NNAgent import NNAgent
 from compare_agents import compareAgents
 from HumanBetAgent import HumanBetAgent
 from multiprocessing import cpu_count
@@ -268,7 +268,7 @@ def convertMiniBatchToStateRewardPair(state_transition_minibatch, action_model, 
     return converted_minibatch
             
 
-def trainDQNAgent():
+def trainNNAgent():
     parser = _build_parser()
     args = parser.parse_args()
     if args.rb_data_folder == "": args.rb_data_folder = args.run_name #if no experience data was input, attempt to find experience data in current run folder
@@ -282,7 +282,7 @@ def trainDQNAgent():
 
     bet_rb_data, eval_rb_data, action_rb_data = loadReplayBufferData(args.rb_data_folder)
 
-    jg = JudgmentGame(agents=[DQNAgent(0,epsilon=0.3, load_models=False),DQNAgent(1,epsilon=0.3, load_models=False),DQNAgent(2,epsilon=0.3, load_models=False),DQNAgent(3,epsilon=0.3, load_models=False)])
+    jg = JudgmentGame(agents=[NNAgent(0,epsilon=0.3, load_models=False),NNAgent(1,epsilon=0.3, load_models=False),NNAgent(2,epsilon=0.3, load_models=False),NNAgent(3,epsilon=0.3, load_models=False)])
 
     print("Loading models...")
     curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model = loadModels(args)
@@ -433,7 +433,7 @@ def trainDQNAgent():
         print("Bet and Evaluation models retrained on new data: evaluating performance.")
 
         #epsilon is zero for evaluation. Load new models into agents 0 and 1, best models into agents 2 and 3.
-        agents_to_compare = [DQNAgent(0,load_models=False),DQNAgent(1,load_models=False),DQNAgent(2,load_models=False),DQNAgent(3,load_models=False)]
+        agents_to_compare = [NNAgent(0,load_models=False),NNAgent(1,load_models=False),NNAgent(2,load_models=False),NNAgent(3,load_models=False)]
         for agent in agents_to_compare[0:2]:
             agent.action_model = curr_action_model
             agent.bet_model = curr_bet_model
@@ -502,10 +502,10 @@ def trainDQNAgent():
         plt.clf()
 
 if __name__ == "__main__":
-    # jg = JudgmentGame(agents=[DQNAgent(0),DQNAgent(1),DQNAgent(2),DQNAgent(3)])
+    # jg = JudgmentGame(agents=[NNAgent(0),NNAgent(1),NNAgent(2),NNAgent(3)])
     # bet_rb_data, eval_rb_data, action_rb_data = loadReplayBufferData("run1")
 
-    trainDQNAgent()
+    trainNNAgent()
 
     # bet_data, eval_data, state_transitions = jg.playGameAndTrackStateTransitions()
 

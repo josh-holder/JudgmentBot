@@ -78,7 +78,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
     [lstm_input for players still to go, 
     [current winner relative points, current winner bet, current winner earned (normalized),
     {-1,1} binary encoding of cards still in game, one-hot encoding of action card, one-hot encoding of trump suit,
-    agent bet, agent percentage of subrounds won, number of cards in hand]]
+    agent bet, agent evaluation of subround winning chance, number of cards in hand]]
     """
     next_agent_index = len(srs.card_stack)+1
     remaining_agents = srs.agents[next_agent_index:]
@@ -125,6 +125,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
     if srs.trump < 4: parameter_state[104+srs.trump] = 1 #if trump is 4, then there is no trump
     parameter_state[108] = agent.bet/13
     parameter_state[109] = agent.subrounds_won/13
+    #NOTE: changing location of this parameter will break chooseCardAndReturnNetworkEvals
     parameter_state[110] = agent.evalSubroundWinChance(srs,chosen_card)
     parameter_state[111] = srs.hand_size/13
 
