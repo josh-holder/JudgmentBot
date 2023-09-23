@@ -27,12 +27,12 @@ def compareAgentsSubprocess(agents_to_compare, games_num, total_scores_queue, id
     scores = [0,0,0,0]
     for game_num in range(games_num):
         print(f"Simulating game {game_num+1}/{games_num} for process id {id}",end='\r')
-        starting_agent = random.choice(range(len(agents_to_compare)))
 
-        random_agent_order = agents_to_compare[starting_agent:]+agents_to_compare[:starting_agent]
+        #randomly shuffle agents so that starting agent is random
+        random.shuffle(agents_to_compare)
 
-        jg = JudgmentGame(agents=random_agent_order)
-        resulting_agents = jg.playGame()
+        jg = JudgmentGame(agents=agents_to_compare)
+        resulting_agents = jg.playGame() #in order of agent ID
         for i,agent in enumerate(resulting_agents):
             scores[i] += agent.points
             agent.points = 0 #reset points
