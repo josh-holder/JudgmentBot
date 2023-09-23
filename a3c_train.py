@@ -341,9 +341,9 @@ def trainAgentViaA3C():
 
         print(f"Finished global update {num_global_updates}!")
 
-        if num_global_updates % nn_config.A3C_GLOBAL_NET_UPDATE_FREQ == 0:
+        if num_global_updates % nn_config.A3C_GLOBAL_NET_UPDATE_EVAL_FREQ == 0:
             #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
-            print(f"{nn_config.A3C_GLOBAL_NET_UPDATE_FREQ} global updates have occured, so evaluating performance.")
+            print(f"{nn_config.A3C_GLOBAL_NET_UPDATE_EVAL_FREQ} global updates have occured, so evaluating performance.")
 
             #epsilon is zero for evaluation. Load new models into agents 0 and 1, best models into agents 2 and 3.
             agents_to_compare = [DQNAgent(0,load_models=False),DQNAgent(1,load_models=False),DQNAgent(2,load_models=False),DQNAgent(3,load_models=False)]
@@ -388,10 +388,6 @@ def trainAgentViaA3C():
                 
                 if iterations_without_improving_best_agent >= 3:
                     print(f"It has been {iterations_without_improving_best_agent} iterations without improving on best agent, so reset to old best agent.")
-                    #remove the last ~50 games of data from the buffer
-                    action_rb_data = [action_rb_data.pop() for _i in range(3*nn_config.NUM_NEW_TRANSITIONS_BEFORE_EVAL_BET_TRAIN)]
-                    eval_rb_data = [eval_rb_data.pop() for _i in range(3*nn_config.NUM_NEW_TRANSITIONS_BEFORE_EVAL_BET_TRAIN//3)] 
-                    bet_rb_data = [bet_rb_data.pop() for _i in range(3*nn_config.NUM_NEW_TRANSITIONS_BEFORE_EVAL_BET_TRAIN//6)]
 
                     curr_bet_model.set_weights(best_bet_weights)
                     curr_action_model.set_weights(best_action_weights)
