@@ -125,6 +125,7 @@ def convertSubroundSituationToActionState(srs, agent, chosen_card):
     if srs.trump < 4: parameter_state[104+srs.trump] = 1 #if trump is 4, then there is no trump
     parameter_state[108] = agent.bet/13
     parameter_state[109] = agent.subrounds_won/13
+    #NOTE: changing location of this parameter will break chooseCardAndReturnNetworkEvals
     parameter_state[110] = agent.evalSubroundWinChance(srs,chosen_card)
     parameter_state[111] = srs.hand_size/13
 

@@ -213,24 +213,19 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             agent.eval_model = thread_eval_model
 
         start = time.time()
-        bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectData()
+        bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectNetworkEvals()
         print(f"Game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id} took {time.time()-start} seconds.")
 
         #Compute loss on action model
         with tf.GradientTape() as action_tape:
-            action_data_inputs = []
+            action_data_predictions = []
             action_data_outputs = []
             for action_data in action_train_data:
-                action_data_inputs.append(action_data[0])
+                action_data_predictions.append(action_data[0])
                 action_data_outputs.append(action_data[1])
 
-            action_data_inputs = postProcessTrainData(action_data_inputs)
-            action_data_outputs = np.array(action_data_outputs)
-
-            action_predictions = thread_action_model(action_data_inputs)
-
             action_loss = tf.keras.losses.MeanSquaredError()
-            action_losses = action_loss(action_data_outputs, action_predictions)
+            action_losses = action_loss(action_data_outputs, action_data_predictions)
 
             if track: wandb.log({"eval/action_network_loss":np.mean(action_losses)})
 
@@ -238,25 +233,15 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
 
         #Compute loss on bet model
         with tf.GradientTape() as bet_tape:
-            #NOTE: there is the potential for a huge speedup here: playGameAndCollectData()
-            #returns data in the form of (bet_state, reward), at which point we reevaluate the bet network
-            #on that bet state in order to compute the loss. If we made a new function which returned simply
-            #the Q value and the loss, that would be far quicker.
-            
             #split the bet_data from tuple form (input, output) to separate lists
-            bet_data_inputs = []
+            bet_data_predictions = []
             bet_data_outputs = []
             for bet_data in bet_train_data:
-                bet_data_inputs.append(bet_data[0])
+                bet_data_predictions.append(bet_data[0])
                 bet_data_outputs.append(bet_data[1])
-            
-            bet_data_inputs = postProcessBetTrainData(bet_data_inputs)
-            bet_data_outputs = np.array(bet_data_outputs)
-            
-            bet_predictions = thread_bet_model(bet_data_inputs)
 
             bet_loss = tf.keras.losses.MeanSquaredError()
-            bet_losses = bet_loss(bet_data_outputs, bet_predictions)
+            bet_losses = bet_loss(bet_data_outputs, bet_data_predictions)
 
             if track: wandb.log({"eval/bet_network_loss":np.mean(bet_losses)})
 
@@ -264,18 +249,14 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
 
         #Compute loss on eval model
         with tf.GradientTape() as eval_tape:
-            eval_data_inputs = []
+            eval_data_predictions = []
             eval_data_outputs = []
             for eval_data in eval_train_data:
-                eval_data_inputs.append(eval_data[0])
+                eval_data_predictions.append(eval_data[0])
                 eval_data_outputs.append(eval_data[1])
 
-            eval_data_inputs = postProcessTrainData(eval_data_inputs)
-            eval_data_outputs = np.array(eval_data_outputs, dtype='float32')
-
-            eval_predictions = thread_eval_model(eval_data_inputs)
             eval_loss = tf.keras.losses.MeanSquaredError()
-            eval_losses = eval_loss(eval_data_outputs, eval_predictions)
+            eval_losses = eval_loss(eval_data_outputs, eval_data_predictions)
 
             if track: wandb.log({"eval/eval_network_loss":np.mean(eval_losses)})
 
@@ -286,9 +267,9 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
         accum_bet_gradients = accum_bet_gradients + bet_gradients
         accum_eval_gradients = accum_eval_gradients + eval_gradients
 
-        act_training_examples += len(action_predictions)
-        bet_training_examples += len(bet_predictions)
-        eval_training_examples += len(eval_predictions)
+        act_training_examples += len(action_data_predictions)
+        bet_training_examples += len(bet_data_predictions)
+        eval_training_examples += len(eval_data_predictions)
 
     return accum_act_gradients, accum_bet_gradients, accum_eval_gradients,\
             act_training_examples, bet_training_examples, eval_training_examples

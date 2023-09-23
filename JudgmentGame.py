@@ -266,7 +266,7 @@ class JudgmentGame(object):
 
         return bet_train_data, eval_train_data, action_train_data
 
-    def playGameAndCollectScores(self):
+    def playGameAndCollectNetworkEvals(self):
         """
         Carries out simulated judgement game.
 
@@ -312,9 +312,9 @@ class JudgmentGame(object):
             bs = BetSituation(hand_size,bets,trump,self.agents)
             for agent in self.agents:                
                 #make bet
-                agent_bet = agent.makeBet(bs)
+                agent_bet, agent_bet_val = agent.makeBetAndReturnNetworkEval(bs)
                 bets.append(agent_bet)
-                bet_state_input_data[agent.id] = convertBetSituationToBetState(bs,agent,agent_bet)
+                bet_state_input_data[agent.id] = agent_bet_val
                 bs.other_bets = bets
                 
             if self.game_verbose: print("Grabbed bets: {}".format(bets))
@@ -332,11 +332,11 @@ class JudgmentGame(object):
 
                 #Each agent plays a card from it's hand
                 for agent in turn_order:
-                    chosen_card = agent.playCard(srs)
+                    chosen_card, chosen_act_val, chosen_eval_val = agent.playCardAndReturnNetworkEvals(srs)
                     
-                    action_state_input_data[agent.id].append(convertSubroundSituationToActionState(srs, agent, chosen_card))
+                    action_state_input_data[agent.id].append(chosen_act_val)
 
-                    eval_state_input_data[agent.id] = convertSubroundSituationToEvalState(srs, agent, chosen_card)
+                    eval_state_input_data[agent.id] = chosen_eval_val
 
                     srs.highest_adjusted_val = max(srs.highest_adjusted_val, calcSubroundAdjustedValue(chosen_card, srs))
                     srs.card_stack.append(chosen_card)
