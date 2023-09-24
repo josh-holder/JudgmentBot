@@ -4,8 +4,7 @@ from SimpleAgent import SimpleAgent
 from JudgmentAgent import JudgmentAgent
 from NNAgent import NNAgent
 import random
-from copy import deepcopy
-from multiprocessing import Process, cpu_count, Pool, Manager, Queue
+from multiprocessing import Process, cpu_count, Queue
 import time
 import argparse
 import absl.logging
