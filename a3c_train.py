@@ -15,6 +15,7 @@ import wandb
 from copy import copy, deepcopy
 from multiprocessing import cpu_count, Pool
 from judgment_value_models import initBetModel, initEvalModel, initActionModel
+from agent_training_utils import loadModels, evaluateModelPerformance
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 
@@ -104,72 +105,6 @@ def initWandBTrack(args):
         config=config_dict,
     )
 
-def loadModels(args):
-    """
-    Given command line arguments, loads current, baseline, and target models.
-    """
-    import keras
-    print("loading models")
-    if args.models_path == None:
-        curr_bet_model_path = os.path.join(os.getcwd(),args.bet_model_path)
-        curr_bet_model = keras.models.load_model(curr_bet_model_path, compile=False)
-        print(f"Loaded current bet model from {curr_bet_model_path}")
-
-        curr_eval_model_path = os.path.join(os.getcwd(),args.eval_model_path)
-        curr_eval_model = keras.models.load_model(curr_eval_model_path, compile=False)
-        print(f"Loaded current eval model from {curr_eval_model_path}")
-
-        curr_action_model_path = os.path.join(os.getcwd(),args.action_model_path)
-        curr_action_model = keras.models.load_model(curr_action_model_path, compile=False)
-        print(f"Loaded current action model fron {curr_action_model_path}")
-    
-    else:
-        curr_bet_model_path = os.path.join(os.getcwd(),args.models_path,"best_bet_model")
-        curr_bet_model = keras.models.load_model(curr_bet_model_path, compile=False)
-        print(f"Loaded current bet model from {curr_bet_model_path}")
-
-        curr_eval_model_path = os.path.join(os.getcwd(),args.models_path,"best_eval_model")
-        curr_eval_model = keras.models.load_model(curr_eval_model_path, compile=False)
-        print(f"Loaded current eval model from {curr_eval_model_path}")
-
-        curr_action_model_path = os.path.join(os.getcwd(),args.models_path,"best_act_model")
-        curr_action_model = keras.models.load_model(curr_action_model_path, compile=False)
-        print(f"Loaded current action model fron {curr_action_model_path}")
-
-    baseline_bet_model = tf.keras.models.clone_model(curr_bet_model)
-    baseline_bet_model.set_weights(curr_bet_model.get_weights())
-    baseline_bet_model.compile()
-
-    baseline_eval_model = tf.keras.models.clone_model(curr_eval_model)
-    baseline_eval_model.set_weights(curr_eval_model.get_weights())
-    baseline_eval_model.compile()
-
-    baseline_action_model = tf.keras.models.clone_model(curr_action_model)
-    baseline_action_model.set_weights(curr_action_model.get_weights())
-    baseline_action_model.compile()
-
-    for layer in baseline_bet_model.layers:
-        layer.trainable = False
-    for layer in baseline_eval_model.layers:
-        layer.trainable = False
-    for layer in baseline_action_model.layers:
-        layer.trainable = False
-
-    print("Initialized baseline models as untrainable copies of current models.")
-
-    return curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model
-
-def saveModels(run_name, bet_model, eval_model, act_model):
-    bet_model_path = os.path.join(os.getcwd(),run_name,"best_bet_model")
-    bet_model.save(bet_model_path)
-
-    eval_model_path = os.path.join(os.getcwd(),run_name,"best_eval_model")
-    eval_model.save(eval_model_path)
-
-    act_model_path = os.path.join(os.getcwd(),run_name,"best_act_model")
-    act_model.save(act_model_path)
-    print("Saved bet, eval, and action models.")
-
 def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_eval_weights, epsilon_choice):
     """
     Plays a game of Judgment with an asynchronous actor, given models and a randomly chosen epsilon value.
@@ -198,7 +133,7 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
     eval_training_examples = 0
 
     for game_num in range(nn_config.A3C_NUM_GAMES_PER_WORKER):
-        print(f"Running game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id}",end="\r")
+        start = time.time()
         #Initialize game
         jg = JudgmentGame([NNAgent(0,epsilon_choice,load_models=False), NNAgent(1,epsilon_choice,load_models=False), \
                            NNAgent(2,epsilon_choice,load_models=False), NNAgent(3,epsilon_choice,load_models=False)])
@@ -209,9 +144,7 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             agent.bet_model = thread_bet_model
             agent.eval_model = thread_eval_model
 
-        #start = time.time()
         bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectNetworkEvals()
-        #print(f"Game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id} took {time.time()-start} seconds.")
 
         #Compute loss on action model
         with tf.GradientTape() as action_tape:
@@ -262,6 +195,8 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
         bet_training_examples += len(bet_data_predictions)
         eval_training_examples += len(eval_data_predictions)
 
+        print(f"Game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id} took {time.time()-start} seconds.", end='\r')
+
     return accum_act_gradients, accum_bet_gradients, accum_eval_gradients,\
             act_training_examples, bet_training_examples, eval_training_examples
 
@@ -280,21 +215,17 @@ def trainAgentViaA3C():
     if not os.path.exists(run_folder_path):
         os.mkdir(run_folder_path)
 
-    curr_bet_model, baseline_bet_model, curr_eval_model, baseline_eval_model, curr_action_model, baseline_action_model = loadModels(args)
+    curr_bet_model, curr_eval_model, curr_action_model,\
+        best_bet_model, best_eval_model, best_action_model,\
+            baseline_bet_model, baseline_eval_model, baseline_action_model = loadModels(args)
 
     state_action_examples_trained_on = 0
     bet_examples_trained_on = 0
-    eval_examples_trained_on = 0
-
-    best_bet_weights = copy(curr_bet_model.get_weights())
-    best_action_weights = copy(curr_action_model.get_weights())
-    best_eval_weights = copy(curr_eval_model.get_weights())
 
     epsilon_choices = [0.3, 0.4, 0.2]
     num_global_updates = 0
 
-    best_model_beat_baseline_by = 0
-    iterations_without_improving_best_agent = 0
+    iterations_without_improving = 0
 
     while True:
         #Initialize gradients of zeros to eventually apply to the global network
@@ -321,7 +252,6 @@ def trainAgentViaA3C():
 
             state_action_examples_trained_on += worker_act_training_examples
             bet_examples_trained_on += worker_bet_training_examples
-            eval_examples_trained_on += worker_eval_training_examples
 
         if args.track:
             wandb.log({"eval/state_action_examples_trained_on": state_action_examples_trained_on,
@@ -339,61 +269,10 @@ def trainAgentViaA3C():
         print(f"Finished global update {num_global_updates}!")
 
         if num_global_updates % nn_config.A3C_GLOBAL_NET_UPDATE_EVAL_FREQ == 0:
-            #~~~~~~~~~~~~~~~~~~~~~~EVALUATING PERFORMANCE~~~~~~~~~~~~~~~~~~~~~~~
-            print(f"{nn_config.A3C_GLOBAL_NET_UPDATE_EVAL_FREQ} global updates have occured, so evaluating performance.")
-
-            #epsilon is zero for evaluation. Load new models into agents 0 and 1, best models into agents 2 and 3.
-            agents_to_compare = [NNAgent(0,load_models=False),NNAgent(1,load_models=False),NNAgent(2,load_models=False),NNAgent(3,load_models=False)]
-            for agent in agents_to_compare[0:2]:
-                agent.action_model = curr_action_model
-                agent.bet_model = curr_bet_model
-                agent.eval_model = curr_eval_model
-
-                agent.action_model.compile()
-                agent.bet_model.compile()
-                agent.eval_model.compile()
-
-            for agent in agents_to_compare[2:]:
-                agent.action_model = baseline_action_model
-                agent.bet_model = baseline_bet_model
-                agent.eval_model = baseline_eval_model
-
-                agent.action_model.compile()
-                agent.bet_model.compile()
-                agent.eval_model.compile()
-
-            print("Performance against baseline agent:")
-            avg_scores_against_baseline_agents = compareAgents(agents_to_compare,games_num=nn_config.COMPARISON_GAMES, cores=cpu_count())
-            new_agent_score_against_baseline = sum(avg_scores_against_baseline_agents[0:2])/len(avg_scores_against_baseline_agents[0:2])
-            baseline_agent_score_against_new = sum(avg_scores_against_baseline_agents[2:])/len(avg_scores_against_baseline_agents[2:])
-            print(f"New Agent average score: {new_agent_score_against_baseline}, baseline agent average score: {baseline_agent_score_against_new}")
-
-            current_beat_baseline_by = new_agent_score_against_baseline - baseline_agent_score_against_new
-
-            if (current_beat_baseline_by > best_model_beat_baseline_by):
-                print(f"!!!New agent improves on current best agent (beating baseline by {current_beat_baseline_by} instead of {best_model_beat_baseline_by}), so saving it!!!")
-                best_bet_weights = copy(curr_bet_model.get_weights())
-                best_action_weights = copy(curr_action_model.get_weights())
-                best_eval_weights = copy(curr_eval_model.get_weights())
-
-                saveModels(args.run_name, curr_bet_model, curr_eval_model, curr_action_model)
-
-                iterations_without_improving_best_agent = 0
-                best_model_beat_baseline_by = current_beat_baseline_by
-            else:
-                iterations_without_improving_best_agent += 1
-                
-                if iterations_without_improving_best_agent >= nn_config.ITER_WOUT_IMPROVE_BEFORE_RESET:
-                    print(f"It has been {iterations_without_improving_best_agent} iterations without improving on best agent, so reset to old best agent.")
-
-                    curr_bet_model.set_weights(best_bet_weights)
-                    curr_action_model.set_weights(best_action_weights)
-                    curr_eval_model.set_weights(best_eval_weights)
-
-                    iterations_without_improving_best_agent = 0
-                else: print(f"~~~New agent does not improve on best agent (beat baseline by {current_beat_baseline_by} instead of {best_model_beat_baseline_by}), so increase iterations without improving on best to {iterations_without_improving_best_agent} and continue training.~~~")
-
-            if args.track: wandb.log({"eval/score_diff_against_baseline": current_beat_baseline_by})
+            evaluateModelPerformance(curr_action_model, curr_bet_model, curr_eval_model,\
+                                    best_action_model, best_bet_model, best_eval_model,\
+                                    baseline_action_model, baseline_bet_model, baseline_eval_model,\
+                                    iterations_without_improving, args)
 
 if __name__ == "__main__":
     trainAgentViaA3C()

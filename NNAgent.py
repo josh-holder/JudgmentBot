@@ -25,6 +25,7 @@ def copyNNAgentsWithoutModels(init_agents):
         new_agent.bet = init_agent.bet
         new_agent.visibly_out_of_suit = copy.copy(init_agent.visibly_out_of_suit)
         new_agent.id = init_agent.id
+        new_agent.epsilon = init_agent.epsilon
 
         new_agents.append(new_agent)
 
@@ -36,22 +37,24 @@ class NNAgent(SimpleAgent):
         self.epsilon = epsilon
 
         if load_models:
-            bet_model_path = os.path.join(os.getcwd(),bet_model_name)
-            self.bet_model = keras.models.load_model(bet_model_path, compile=False)
-            self.bet_model.compile()
-
-            eval_model_path = os.path.join(os.getcwd(),eval_model_name)
-            self.eval_model = keras.models.load_model(eval_model_path, compile=False)
-            self.eval_model.compile()
-
-            action_model_path = os.path.join(os.getcwd(),action_model_name)
-            self.action_model = keras.models.load_model(action_model_path, compile=False)
-            self.action_model.compile()    
-
+            self.loadModels(bet_model_name, eval_model_name, action_model_name)
         else:
             self.action_model = None
             self.bet_model = None
             self.eval_model = None
+
+    def loadModels(self, bet_model_name, eval_model_name, action_model_name):
+        bet_model_path = os.path.join(os.getcwd(),bet_model_name)
+        self.bet_model = keras.models.load_model(bet_model_path, compile=False)
+        self.bet_model.compile()
+
+        eval_model_path = os.path.join(os.getcwd(),eval_model_name)
+        self.eval_model = keras.models.load_model(eval_model_path, compile=False)
+        self.eval_model.compile()
+
+        action_model_path = os.path.join(os.getcwd(),action_model_name)
+        self.action_model = keras.models.load_model(action_model_path, compile=False)
+        self.action_model.compile()
 
     def evalSubroundWinChance(self,srs,card):
         """

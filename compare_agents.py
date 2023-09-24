@@ -4,7 +4,9 @@ from SimpleAgent import SimpleAgent
 from JudgmentAgent import JudgmentAgent
 from NNAgent import NNAgent
 import random
-from multiprocessing import Process, cpu_count, Queue
+from judgment_value_models import initActionModel, initBetModel, initEvalModel
+from multiprocessing import cpu_count, Pool
+from itertools import repeat
 import time
 import argparse
 import absl.logging
@@ -25,57 +27,90 @@ def _build_parser():
 
     return parser
 
-def compareAgentsSubprocess(agents_to_compare, games_num, total_scores_queue, id):
+def compareAgentsPoolInitSlow(agents_to_compare_init):
+    """
+    We use an initialize function for the pool so that we can pass each worker
+    the models (and go through the expensive serialization process) only once
+    for each worker.
+    """
+    global agents_to_compare
+    agents_to_compare = agents_to_compare_init
+
+def compareAgentsPoolInit(action_model_weights, bet_model_weights, eval_model_weights):
+    """
+    We use an initialize function for the pool so that we can pass each worker
+    the model weights (and go through the expensive serialization process) only once
+    for each worker.
+
+    Using model weights is faster than using the models themselves, though.
+    """
+    global agents_to_compare
+
+    agents_to_compare = []
+    for i, action_model_weight,bet_model_weight,eval_model_weight in zip(range(len(action_model_weights)), action_model_weights,bet_model_weights,eval_model_weights):
+        agent = NNAgent(i, load_models=False)
+        agent.action_model = initActionModel()
+        agent.action_model.set_weights(action_model_weight)
+
+        agent.bet_model = initBetModel()
+        agent.bet_model.set_weights(bet_model_weight)
+
+        agent.eval_model = initEvalModel()
+        agent.eval_model.set_weights(eval_model_weight)
+
+        agents_to_compare.append(agent)
+
+def compareAgentsPoolSubprocess(pid):
     scores = [0,0,0,0]
-    for game_num in range(games_num):
-        print(f"Simulating game {game_num+1}/{games_num} for process id {id}",end='\r')
 
-        #randomly shuffle agents so that starting agent is random
-        random.shuffle(agents_to_compare)
+    random.shuffle(agents_to_compare)
+    jg = JudgmentGame(agents=agents_to_compare)
+    resulting_agents = jg.playGame() #in order of agent ID
+    for i,agent in enumerate(resulting_agents):
+        scores[i] += agent.points
 
-        jg = JudgmentGame(agents=agents_to_compare)
-        resulting_agents = jg.playGame() #in order of agent ID
-        for i,agent in enumerate(resulting_agents):
-            scores[i] += agent.points
-            agent.points = 0 #reset points
+    return scores
 
-    #Adding scores to the queue
-    total_scores = total_scores_queue.get() #retrieve total score object
-    total_scores = [total_scores[i]+scores[i] for i in range(len(scores))] 
-    total_scores_queue.put(total_scores) #put total score object back into queue, with scores added
+def compareAgents(agents_to_compare,games_num,cores=1,optimized=True):
+    """
+    Given a list of agents, compare them against each other in group games.
 
-def compareAgents(agents_to_compare,games_num,cores=1):
+    If optimized=True, passes the action models to the pool workers as weights, not as models,
+    to save a massive amount of time in serialization.
+
+    Otherwise, passes the actual agents_to_compare structure to the pool workers, which
+    is more compatible with models of different structures but is slower. 
+    """
     start = time.time()
-    total_scores_queue = Queue()
-    total_scores_queue.put([0,0,0,0])
+    action_model_weights = [agent.action_model.get_weights() for agent in agents_to_compare]
+    bet_model_weights = [agent.bet_model.get_weights() for agent in agents_to_compare]
+    eval_model_weights = [agent.eval_model.get_weights() for agent in agents_to_compare]
 
-    games_num = games_num + (cores - games_num % cores) #Ensure that games_num is an even multiple of the number of cores
+    if optimized: #Optimized but less compatible method of comparison
+        initargs = [action_model_weights, bet_model_weights, eval_model_weights]
+        initfcn = compareAgentsPoolInit
+    else: 
+        initargs = [agents_to_compare]
+        initfcn = compareAgentsPoolInitSlow
 
-    processes = []
-    for process_num in range(cores):
-        # copy_of_agent_list = deepcopy(agents_to_compare)
-        p = Process(target=compareAgentsSubprocess, args=(agents_to_compare, games_num//cores, total_scores_queue, process_num))
-        #Weird adam optimizer warning originates in the p.start() call below
-        p.start()
-        processes.append(p)
+    with Pool(processes=cores, initializer=initfcn, initargs=initargs) as p:
+        scores = []
+        #Pass the same action, bet, and eval model weights to each worker
+        for i, score in enumerate(p.imap_unordered(compareAgentsPoolSubprocess, range(games_num))):
+            print(f"Simulated comparison game {i+1}/{games_num}...", end='\r')
+            scores.append(score)
 
-    for p in processes:
-        p.join()
-
-    total_scores = total_scores_queue.get()
-    avg_scores = [score/games_num for score in total_scores]
-
-    print(f"Generated {games_num} games in {time.time()-start} seconds.")
-    print("Average Final Scores over {} games: {}".format(games_num,avg_scores))
-
-    return avg_scores
+    print(f"Simulated {games_num} comparison games in {time.time()-start} seconds.")
+    avg_scores = [sum(x)/len(x) for x in zip(*scores)]
+    print(f"Average final scores: {avg_scores}")
+    return scores
 
 if __name__ == "__main__":
     parser = _build_parser()
     args = parser.parse_args()
     # compareAgents([NNAgent(0),HumanBetAgent(1),SimpleAgent(2),JudgmentAgent(3)],games_num=10,cores=cpu_count())
     # compareAgents([NNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)],games_num=100)
-    compareAgents([NNAgent(0,bet_model_name="lab_run/best_bet_model",action_model_name="lab_run/best_act_model",eval_model_name="lab_run/best_eval_model"),\
-            NNAgent(1,bet_model_name="lab_run/best_bet_model",action_model_name="lab_run/best_act_model",eval_model_name="lab_run/best_eval_model"),\
+    compareAgents([NNAgent(0,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model"),\
+            NNAgent(1,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model"),\
             NNAgent(2,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model"),\
-            NNAgent(3,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model")], games_num=args.games, cores=cpu_count())
+            NNAgent(3,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model")], games_num=args.games, cores=cpu_count(), optimized=False)

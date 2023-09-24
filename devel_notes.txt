@@ -14,3 +14,8 @@ Average Final Scores over 1004 games: [308.48605577689244, 303.08964143426294, 3
 However, the results from even a quick run on the lab computer with 8 cores seemed to be promising - running right now.
 
 Perhaps the lesson is that you need more than 4 cores worth of A3C agents to ensure data diversity and actual learning.
+
+9/24/23
+Worked deep into the morning (4am ish). Optimized agent comparisons, learned a lot about statistics and t-testing.
+
+Implemented a much more robust and statistically valid way of comparing the models. Excited to train on the lab computer later today.
