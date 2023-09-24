@@ -369,10 +369,13 @@ def trainDQNAgent():
 
         #NOTE: no longer removes data from replay buffer from version of bot which failed to
         #improve. I don't think this is significant, but see commits prior to 9/23/23 if interested.
-        evaluateModelPerformance(curr_action_model, curr_bet_model, curr_eval_model,\
-                                    best_action_model, best_bet_model, best_eval_model,\
-                                    baseline_action_model, baseline_bet_model, baseline_eval_model,\
-                                    iterations_without_improving, args)
+        curr_action_model, curr_bet_model, curr_eval_model, \
+        best_action_model, best_bet_model, best_eval_model, \
+        baseline_action_model, baseline_bet_model, baseline_eval_model, \
+        iterations_without_improving = evaluateModelPerformance(curr_action_model, curr_bet_model, curr_eval_model,\
+                                best_action_model, best_bet_model, best_eval_model,\
+                                baseline_action_model, baseline_bet_model, baseline_eval_model,\
+                                iterations_without_improving, args)
 
         print(f"Evaluation complete: generating {num_new_transitions_before_eval_bet_training} new state transitions.")
 

@@ -441,9 +441,14 @@ if __name__ == "__main__":
 
     # print("Final Scores: {}".format([score for score in scores]))
 
+    agents = [NNAgent(0, bet_model_name='new_test/best_bet_model', action_model_name='new_test/best_act_model', eval_model_name='new_test/best_eval_model'),\
+              NNAgent(1, bet_model_name='new_test/best_bet_model', action_model_name='new_test/best_act_model', eval_model_name='new_test/best_eval_model'),\
+              NNAgent(2, bet_model_name='current_best_models/best_bet_model', action_model_name='current_best_models/best_act_model', eval_model_name='current_best_models/best_eval_model'),\
+                NNAgent(3, bet_model_name='current_best_models/best_bet_model', action_model_name='current_best_models/best_act_model', eval_model_name='current_best_models/best_eval_model')]
+
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     st = time.time()
-    for i in range(5):
-        jg = JudgmentGame(game_verbose=0,agents=[NNAgent(0),NNAgent(1),HumanBetAgent(2),HumanBetAgent(3)])
+    for i in range(1):
+        jg = JudgmentGame(game_verbose=1,agents=agents)
         jg.playGame()
     print(time.time()-st)

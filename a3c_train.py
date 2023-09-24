@@ -271,7 +271,10 @@ def trainAgentViaA3C():
         print(f"\nApplied global gradient update {num_global_updates}!")
 
         if num_global_updates % nn_config.A3C_GLOBAL_NET_UPDATE_EVAL_FREQ == 0:
-            evaluateModelPerformance(curr_action_model, curr_bet_model, curr_eval_model,\
+            curr_action_model, curr_bet_model, curr_eval_model, \
+            best_action_model, best_bet_model, best_eval_model, \
+            baseline_action_model, baseline_bet_model, baseline_eval_model, \
+            iterations_without_improving = evaluateModelPerformance(curr_action_model, curr_bet_model, curr_eval_model,\
                                     best_action_model, best_bet_model, best_eval_model,\
                                     baseline_action_model, baseline_bet_model, baseline_eval_model,\
                                     iterations_without_improving, args)

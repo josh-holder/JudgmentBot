@@ -68,6 +68,7 @@ def compareAgentsPoolSubprocess(pid):
     resulting_agents = jg.playGame() #in order of agent ID
     for i,agent in enumerate(resulting_agents):
         scores[i] += agent.points
+        agent.points = 0
 
     return scores
 
@@ -95,11 +96,14 @@ def compareAgents(agents_to_compare,games_num,cores=1,optimized=True):
 
     with Pool(processes=cores, initializer=initfcn, initargs=initargs) as p:
         scores = []
-        #Pass the same action, bet, and eval model weights to each worker
+        #The result of imap_unordered gets filled over time, so by iterating over it
+        #we can track its progress.
         for i, score in enumerate(p.imap_unordered(compareAgentsPoolSubprocess, range(games_num))):
             print(f"Simulated comparison game {i+1}/{games_num}...", end='\r')
             scores.append(score)
+            print(scores)
 
+    print(scores)
     print(f"Simulated {games_num} comparison games in {time.time()-start} seconds.")
     avg_scores = [sum(x)/len(x) for x in zip(*scores)]
     print(f"Average final scores: {avg_scores}")
@@ -110,7 +114,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # compareAgents([NNAgent(0),HumanBetAgent(1),SimpleAgent(2),JudgmentAgent(3)],games_num=10,cores=cpu_count())
     # compareAgents([NNAgent(0),HumanBetAgent(1),HumanBetAgent(2),HumanBetAgent(3)],games_num=100)
-    compareAgents([NNAgent(0,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model"),\
-            NNAgent(1,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model"),\
-            NNAgent(2,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model"),\
-            NNAgent(3,bet_model_name="current_best_models/best_bet_model",action_model_name="current_best_models/best_act_model",eval_model_name="current_best_models/best_eval_model")], games_num=args.games, cores=cpu_count(), optimized=False)
+    agents = [NNAgent(0, bet_model_name='new_test/best_bet_model', action_model_name='new_test/best_act_model', eval_model_name='new_test/best_eval_model'),\
+              NNAgent(1, bet_model_name='new_test/best_bet_model', action_model_name='new_test/best_act_model', eval_model_name='new_test/best_eval_model'),\
+              NNAgent(2, bet_model_name='current_best_models/best_bet_model', action_model_name='current_best_models/best_act_model', eval_model_name='current_best_models/best_eval_model'),\
+                NNAgent(3, bet_model_name='current_best_models/best_bet_model', action_model_name='current_best_models/best_act_model', eval_model_name='current_best_models/best_eval_model')]
+    
+    compareAgents(agents, games_num=args.games, cores=cpu_count(), optimized=True)
