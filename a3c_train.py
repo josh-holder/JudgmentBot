@@ -172,7 +172,7 @@ def saveModels(run_name, bet_model, eval_model, act_model):
     act_model.save(act_model_path)
     print("Saved bet, eval, and action models.")
 
-def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_eval_weights, epsilon_choice, track):
+def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_eval_weights, epsilon_choice):
     """
     Plays a game of Judgment with an asynchronous actor, given models and a randomly chosen epsilon value.
 
@@ -200,7 +200,7 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
     eval_training_examples = 0
 
     for game_num in range(nn_config.A3C_NUM_GAMES_PER_WORKER):
-        print(f"Starting game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id}",end="\r")
+        print(f"Running game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id}",end="\r")
         #Initialize game
         jg = JudgmentGame([NNAgent(0,epsilon_choice,load_models=False), NNAgent(1,epsilon_choice,load_models=False), \
                            NNAgent(2,epsilon_choice,load_models=False), NNAgent(3,epsilon_choice,load_models=False)])
@@ -211,9 +211,9 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             agent.bet_model = thread_bet_model
             agent.eval_model = thread_eval_model
 
-        start = time.time()
+        #start = time.time()
         bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectNetworkEvals()
-        print(f"Game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id} took {time.time()-start} seconds.")
+        #print(f"Game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id} took {time.time()-start} seconds.")
 
         #Compute loss on action model
         with tf.GradientTape() as action_tape:
@@ -225,8 +225,6 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
 
             action_loss = tf.keras.losses.MeanSquaredError()
             action_losses = action_loss(action_data_outputs, action_data_predictions)
-
-            if track: wandb.log({"eval/action_network_loss":np.mean(action_losses)})
 
             action_gradients = action_tape.gradient(action_losses, thread_action_model.trainable_variables)
 
@@ -242,8 +240,6 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             bet_loss = tf.keras.losses.MeanSquaredError()
             bet_losses = bet_loss(bet_data_outputs, bet_data_predictions)
 
-            if track: wandb.log({"eval/bet_network_loss":np.mean(bet_losses)})
-
             bet_gradients = bet_tape.gradient(bet_losses, thread_bet_model.trainable_variables)
 
         #Compute loss on eval model
@@ -256,8 +252,6 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
 
             eval_loss = tf.keras.losses.MeanSquaredError()
             eval_losses = eval_loss(eval_data_outputs, eval_data_predictions)
-
-            if track: wandb.log({"eval/eval_network_loss":np.mean(eval_losses)})
 
             eval_gradients = eval_tape.gradient(eval_losses, thread_eval_model.trainable_variables)
 
@@ -314,7 +308,7 @@ def trainAgentViaA3C():
         game_arguments = []
         for worker in range(nn_config.A3C_NUM_WORKERS):
             epsilon_choice = random.choice(epsilon_choices)
-            game_arguments.append((worker, curr_action_model.get_weights(), curr_bet_model.get_weights(), curr_eval_model.get_weights(), epsilon_choice, args.track))
+            game_arguments.append((worker, curr_action_model.get_weights(), curr_bet_model.get_weights(), curr_eval_model.get_weights(), epsilon_choice))
 
         #Initialize a pool of processes to play games and accumulate gradients, each using a random choice of epsilon
         with Pool(processes=nn_config.A3C_NUM_WORKERS) as p:
@@ -332,9 +326,8 @@ def trainAgentViaA3C():
             eval_examples_trained_on += worker_eval_training_examples
 
         if args.track:
-            wandb.log({"eval/state_action_examples_trained_on": worker_act_training_examples,
-                       "eval/bet_examples_trained_on": worker_bet_training_examples,
-                       "eval/eval_examples_trained_on": worker_eval_training_examples})
+            wandb.log({"eval/state_action_examples_trained_on": state_action_examples_trained_on,
+                       "eval/bet_examples_trained_on": bet_examples_trained_on})
 
         optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=nn_config.LEARNING_RATE)
 
@@ -372,7 +365,7 @@ def trainAgentViaA3C():
                 agent.eval_model.compile()
 
             print("Performance against baseline agent:")
-            avg_scores_against_baseline_agents = compareAgents(agents_to_compare,games_num=24, cores=cpu_count())
+            avg_scores_against_baseline_agents = compareAgents(agents_to_compare,games_num=nn_config.COMPARISON_GAMES, cores=cpu_count())
             new_agent_score_against_baseline = sum(avg_scores_against_baseline_agents[0:2])/len(avg_scores_against_baseline_agents[0:2])
             baseline_agent_score_against_new = sum(avg_scores_against_baseline_agents[2:])/len(avg_scores_against_baseline_agents[2:])
             print(f"New Agent average score: {new_agent_score_against_baseline}, baseline agent average score: {baseline_agent_score_against_new}")
@@ -392,7 +385,7 @@ def trainAgentViaA3C():
             else:
                 iterations_without_improving_best_agent += 1
                 
-                if iterations_without_improving_best_agent >= 3:
+                if iterations_without_improving_best_agent >= nn_config.ITER_WOUT_IMPROVE_BEFORE_RESET:
                     print(f"It has been {iterations_without_improving_best_agent} iterations without improving on best agent, so reset to old best agent.")
 
                     curr_bet_model.set_weights(best_bet_weights)
