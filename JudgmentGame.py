@@ -4,7 +4,7 @@ from SimpleAgent import SimpleAgent
 from HumanAgent import HumanAgent
 from HumanBetAgent import HumanBetAgent
 from NNAgent import copyNNAgentsWithoutModels, NNAgent
-from JudgmentDataUtils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState, BetSituation, SubroundSituation
+from judgment_data_utils import calcSubroundAdjustedValue, convertBetSituationToBetState, convertSubroundSituationToActionState, convertSubroundSituationToEvalState, BetSituation, SubroundSituation
 import numpy as np
 from nn_config import POINT_NORMALIZATION
 from collections import defaultdict as dd

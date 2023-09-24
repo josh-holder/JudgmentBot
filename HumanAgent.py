@@ -1,7 +1,7 @@
 from SimpleAgent import SimpleAgent
 from JudgmentAgent import JudgmentAgent
 from HumanBetAgent import HumanBetAgent
-from JudgmentDataUtils import calcSubroundAdjustedValue
+from judgment_data_utils import calcSubroundAdjustedValue
 import copy
 
 play_verbose = 0

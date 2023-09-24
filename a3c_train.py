@@ -6,8 +6,6 @@ import random
 import time
 from matplotlib import pyplot as plt
 import tensorflow as tf
-import keras
-from JudgmentDataUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
 from JudgmentGame import JudgmentGame
 from NNAgent import NNAgent
 from compare_agents import compareAgents
@@ -16,7 +14,7 @@ import multiprocessing
 import wandb
 from copy import copy, deepcopy
 from multiprocessing import cpu_count, Pool
-from JudgmentValueModels import initBetModel, initEvalModel, initActionModel
+from judgment_value_models import initBetModel, initEvalModel, initActionModel
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 

@@ -1,6 +1,6 @@
 #Judgment agent class
 import random
-from JudgmentDataUtils import calcSubroundAdjustedValue
+from judgment_data_utils import calcSubroundAdjustedValue
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]
 

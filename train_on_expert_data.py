@@ -3,7 +3,7 @@ Initialize bet, evaluation, and model value functions based on supervised learni
 """
 from JudgmentGame import JudgmentGame
 from JudgmentAgent import JudgmentAgent
-from JudgmentValueModels import initBetModel, initActionModel, initEvalModel
+from judgment_value_models import initBetModel, initActionModel, initEvalModel
 from nn_config import POINT_NORMALIZATION
 import numpy as np
 from HumanBetAgent import HumanBetAgent
@@ -11,7 +11,7 @@ import os
 import pickle
 from math import floor
 import time
-from JudgmentDataUtils import postProcessTrainData, postProcessBetTrainData
+from judgment_data_utils import postProcessTrainData, postProcessBetTrainData
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 
 SUIT_ORDER = ["Spades","Hearts","Diamonds","Clubs","No Trump"]

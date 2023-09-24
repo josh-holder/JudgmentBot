@@ -1,4 +1,4 @@
-from JudgmentDataUtils import convertSubroundSituationToEvalState, convertSubroundSituationToActionState, convertBetSituationToBetState
+from judgment_data_utils import convertSubroundSituationToEvalState, convertSubroundSituationToActionState, convertBetSituationToBetState
 from SimpleAgent import SimpleAgent
 from HumanBetAgent import HumanBetAgent
 from tensorflow import keras

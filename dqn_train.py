@@ -10,8 +10,8 @@ import time
 from matplotlib import pyplot as plt
 import tensorflow as tf
 from copy import copy, deepcopy
-from JudgmentDataUtils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
-from JudgmentValueModels import initActionModel, initBetModel, initEvalModel 
+from judgment_data_utils import postProcessTrainData, postProcessBetTrainData, convertSubroundSituationToActionState
+from judgment_value_models import initActionModel, initBetModel, initEvalModel 
 from JudgmentGame import JudgmentGame
 from NNAgent import NNAgent
 from compare_agents import compareAgents

@@ -57,7 +57,7 @@ Defines the generic class JudgementAgent which can participate in a game of Judg
 
 Any classes inheriting from the JudgmentAgent class must define their own makeBet and chooseCard methods which are more than purely random.
 
-## JudgmentValueModels.py
+## judgment_value_models.py
 
 File which determines structure of betting, action, and evaluation models.
 
