@@ -20,13 +20,13 @@ DQN_BET_TRAIN_BATCH_SIZE = 256
 #######################################################################
 
 ######################### A3C PARAMETERS ##############################
-A3C_NUM_GAMES_PER_WORKER = 1
-A3C_NUM_WORKERS = 1
-A3C_GLOBAL_NET_UPDATE_EVAL_FREQ = 1
+A3C_NUM_GAMES_PER_WORKER = 25
+A3C_NUM_WORKERS = 4
+A3C_GLOBAL_NET_UPDATE_EVAL_FREQ = 3
 #######################################################################
 
 #################### MODEL COMPARISON PARAMETERS ######################
-ITER_WOUT_IMPROVE_BEFORE_RESET = 3
+ITER_WOUT_IMPROVE_BEFORE_RESET = 5
 COMPARISON_GAMES = 50
 
 CONFIDENCE_REQ = 0.95

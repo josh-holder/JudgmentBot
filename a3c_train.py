@@ -227,6 +227,7 @@ def trainAgentViaA3C():
 
     iterations_without_improving = 0
 
+    print("~~~BEGINNING TRAINING~~~")
     while True:
         #Initialize gradients of zeros to eventually apply to the global network
         act_gradients = [tf.zeros_like(var) for var in curr_action_model.trainable_variables]
@@ -240,6 +241,7 @@ def trainAgentViaA3C():
             game_arguments.append((worker, curr_action_model.get_weights(), curr_bet_model.get_weights(), curr_eval_model.get_weights(), epsilon_choice))
 
         #Initialize a pool of processes to play games and accumulate gradients, each using a random choice of epsilon
+        print(f"Spawning {nn_config.A3C_NUM_WORKERS} workers to play {nn_config.A3C_NUM_GAMES_PER_WORKER} games each and accumulate gradients:")
         with Pool(processes=nn_config.A3C_NUM_WORKERS) as p:
             worker_accum_gradients = p.starmap(playJudgmentGameThread, game_arguments)
 
@@ -266,7 +268,7 @@ def trainAgentViaA3C():
 
         num_global_updates += 1
 
-        print(f"Finished global update {num_global_updates}!")
+        print(f"\nApplied global gradient update {num_global_updates}!")
 
         if num_global_updates % nn_config.A3C_GLOBAL_NET_UPDATE_EVAL_FREQ == 0:
             evaluateModelPerformance(curr_action_model, curr_bet_model, curr_eval_model,\
