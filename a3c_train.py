@@ -1,15 +1,12 @@
 import os
 import nn_config
 import argparse
-import numpy as np
 import random
 import time
-from matplotlib import pyplot as plt
 import tensorflow as tf
 from JudgmentGame import JudgmentGame
 from NNAgent import NNAgent
 from compare_agents import compareAgents
-from HumanBetAgent import HumanBetAgent
 import multiprocessing
 import wandb
 from copy import copy, deepcopy

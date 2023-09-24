@@ -1,11 +1,6 @@
 from judgment_data_utils import convertSubroundSituationToEvalState, convertSubroundSituationToActionState, convertBetSituationToBetState
 from SimpleAgent import SimpleAgent
-from HumanBetAgent import HumanBetAgent
 from tensorflow import keras
-import tensorflow as tf
-from tensorflow.keras import layers
-from tensorflow.keras.layers import concatenate, Masking
-from tensorflow.keras import Input, Model
 import numpy as np
 import os
 import random
