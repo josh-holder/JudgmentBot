@@ -1,0 +1,16 @@
+9/23/23
+Back in the swing of things again. Refactored code for a3c and got some runs going.
+
+Notably:
+ - added speedup where it stores the results of evaluations, rather than recalculating to determine A3C loss
+ - made model evaluation truly random
+ - made naming more pythonic + added comments + added README
+ - split model comparison out into separate function and logic
+
+Did a run with 4 cores on my personal laptop. Ran for about 10 hours (25*4*22=2200 games), seemed to regress:
+Generated 1004 games in 16561.51426100731 seconds.
+Average Final Scores over 1004 games: [308.48605577689244, 303.08964143426294, 315.68824701195217, 316.3964143426295]
+
+However, the results from even a quick run on the lab computer with 8 cores seemed to be promising - running right now.
+
+Perhaps the lesson is that you need more than 4 cores worth of A3C agents to ensure data diversity and actual learning.
