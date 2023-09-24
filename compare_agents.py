@@ -101,7 +101,6 @@ def compareAgents(agents_to_compare,games_num,cores=1,optimized=True):
         for i, score in enumerate(p.imap_unordered(compareAgentsPoolSubprocess, range(games_num))):
             print(f"Simulated comparison game {i+1}/{games_num}...", end='\r')
             scores.append(score)
-            print(scores)
 
     print(scores)
     print(f"Simulated {games_num} comparison games in {time.time()-start} seconds.")
