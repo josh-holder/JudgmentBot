@@ -252,10 +252,6 @@ def trainAgentViaA3C():
             state_action_examples_trained_on += worker_act_training_examples
             bet_examples_trained_on += worker_bet_training_examples
 
-        if args.track:
-            wandb.log({"eval/state_action_examples_trained_on": state_action_examples_trained_on,
-                       "eval/bet_examples_trained_on": bet_examples_trained_on})
-
         optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=nn_config.LEARNING_RATE)
 
         #update weights by the accumulated gradients
@@ -266,6 +262,11 @@ def trainAgentViaA3C():
         num_global_updates += 1
 
         print(f"\nApplied global gradient update {num_global_updates}!")
+
+        if args.track:
+            wandb.log({"train/state_action_examples_trained_on": state_action_examples_trained_on,
+                       "train/bet_examples_trained_on": bet_examples_trained_on,
+                       "train/global_gradient_updates": num_global_updates})
 
         if num_global_updates % nn_config.A3C_GLOBAL_NET_UPDATE_EVAL_FREQ == 0:
             curr_action_model, curr_bet_model, curr_eval_model, \
