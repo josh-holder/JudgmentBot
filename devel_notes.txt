@@ -19,3 +19,16 @@ Perhaps the lesson is that you need more than 4 cores worth of A3C agents to ens
 Worked deep into the morning (4am ish). Optimized agent comparisons, learned a lot about statistics and t-testing.
 
 Implemented a much more robust and statistically valid way of comparing the models. Excited to train on the lab computer later today.
+
+Update: ran experiments with 12 and 8 workers today. Seems that 12/20 is effectively identical to 8/25 from a training steps/min perspective,
+but perhaps better from a performance perspective? Benefits maybe from seeing more diverse areas of the search space?
+
+Not seeing clear improvement in the models, though. Giving this batch a longer time to run to see if it can
+make any improvement within 10 global updates.
+
+9/25/23
+Why won't the model improve?
+ - epsilon too high
+ - bug in gradient propagation
+ - Acceptance criteria is too harsh
+ - need multi agent RL approach to make this work

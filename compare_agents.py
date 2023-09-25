@@ -102,7 +102,6 @@ def compareAgents(agents_to_compare,games_num,cores=1,optimized=True):
             print(f"Simulated comparison game {i+1}/{games_num}...", end='\r')
             scores.append(score)
 
-    print(scores)
     print(f"Simulated {games_num} comparison games in {time.time()-start} seconds.")
     avg_scores = [sum(x)/len(x) for x in zip(*scores)]
     print(f"Average final scores: {avg_scores}")
