@@ -173,8 +173,7 @@ def evaluateModelPerformance(curr_action_model, curr_bet_model, curr_eval_model,
     chance_better_than_both = min(chance_better_than_best, chance_better_than_base)
 
     if chance_better_than_both < nn_config.CONFIDENCE_REQ and chance_better_than_both > nn_config.FURTHER_EXPLORE_CONFIDENCE_REQ:
-        print(f"~~~{nn_config.CONFIDENCE_REQ}>{chance_better_than_both}>{nn_config.FURTHER_EXPLORE_CONFIDENCE_REQ} chance\
-               that the model is better than both baseline and best, so simulate a few more games.~~~")
+        print(f"~~~{nn_config.CONFIDENCE_REQ}>{chance_better_than_both}>{nn_config.FURTHER_EXPLORE_CONFIDENCE_REQ} chance that the model is better than both baseline and best, so simulate a few more games.~~~")
 
         #Run the rest of the games required for comparison and test scores:
         rest_compare_games = nn_config.COMPARISON_GAMES - initial_compare_games
