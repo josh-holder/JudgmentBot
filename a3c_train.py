@@ -208,8 +208,6 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
         bet_training_examples += len(bet_predictions)
         eval_training_examples += len(eval_predictions)
 
-        print(accum_act_gradients)
-
         print(f"Game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id} took {time.time()-start} seconds.", end='\r')
 
     return accum_act_gradients, accum_bet_gradients, accum_eval_gradients,\
