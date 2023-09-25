@@ -394,7 +394,6 @@ class JudgmentGame(object):
                 print(" ")
 
             self.agents.append(self.agents.pop(0)) #shift order of agents for next round
-
         return bet_train_data, eval_train_data, action_train_data
 
     def evaluateSubround(self,srs):
@@ -450,5 +449,5 @@ if __name__ == "__main__":
     st = time.time()
     for i in range(1):
         jg = JudgmentGame(game_verbose=1,agents=agents)
-        jg.playGame()
+        jg.playGameAndCollectNetworkEvals()
     print(time.time()-st)

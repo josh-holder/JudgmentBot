@@ -29,6 +29,13 @@ make any improvement within 10 global updates.
 9/25/23
 Why won't the model improve?
  - epsilon too high
- - bug in gradient propagation
+ - bug in gradient propagation (CHECK)
  - Acceptance criteria is too harsh
  - need multi agent RL approach to make this work
+
+So turns out that my "optimization" of returning the evaluations of the model directly was actually causing literally zero updates to be applied.
+In retrospect, this is incredibly incredibly obvious. If you're not performing any computation with the model, it has no idea what inputs/outputs
+led to changes in the loss function. From the model's perspective, it says "Oh, this looked like it worked well! Shame no model weights contributed
+to this and we can't make any changes! :(".
+
+Will run new training process on lab computer where weights are actually being applied, perhaps with the slightly less stringent acceptance criteria.

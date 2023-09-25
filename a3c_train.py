@@ -9,10 +9,12 @@ from NNAgent import NNAgent
 from compare_agents import compareAgents
 import multiprocessing
 import wandb
+import numpy as np
 from copy import copy, deepcopy
 from multiprocessing import cpu_count, Pool
 from judgment_value_models import initBetModel, initEvalModel, initActionModel
 from agent_training_utils import loadModels, evaluateModelPerformance
+from judgment_data_utils import postProcessBetTrainData, postProcessTrainData, convertSubroundSituationToActionState
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 
@@ -141,45 +143,59 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
             agent.bet_model = thread_bet_model
             agent.eval_model = thread_eval_model
 
-        bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectNetworkEvals()
+        bet_train_data, eval_train_data, action_train_data = jg.playGameAndCollectData()
 
         #Compute loss on action model
         with tf.GradientTape() as action_tape:
-            action_data_predictions = []
+            action_data_inputs = []
             action_data_outputs = []
             for action_data in action_train_data:
-                action_data_predictions.append(action_data[0])
+                action_data_inputs.append(action_data[0])
                 action_data_outputs.append(action_data[1])
 
+            action_data_inputs = postProcessTrainData(action_data_inputs)
+            action_data_outputs = np.array(action_data_outputs)
+
+            action_predictions = thread_action_model(action_data_inputs)
+
             action_loss = tf.keras.losses.MeanSquaredError()
-            action_losses = action_loss(action_data_outputs, action_data_predictions)
+            action_losses = action_loss(action_data_outputs, action_predictions)
 
             action_gradients = action_tape.gradient(action_losses, thread_action_model.trainable_variables)
 
         #Compute loss on bet model
         with tf.GradientTape() as bet_tape:
             #split the bet_data from tuple form (input, output) to separate lists
-            bet_data_predictions = []
+            bet_data_inputs = []
             bet_data_outputs = []
             for bet_data in bet_train_data:
-                bet_data_predictions.append(bet_data[0])
+                bet_data_inputs.append(bet_data[0])
                 bet_data_outputs.append(bet_data[1])
+            
+            bet_data_inputs = postProcessBetTrainData(bet_data_inputs)
+            bet_data_outputs = np.array(bet_data_outputs)
+            
+            bet_predictions = thread_bet_model(bet_data_inputs)
 
             bet_loss = tf.keras.losses.MeanSquaredError()
-            bet_losses = bet_loss(bet_data_outputs, bet_data_predictions)
+            bet_losses = bet_loss(bet_data_outputs, bet_predictions)
 
             bet_gradients = bet_tape.gradient(bet_losses, thread_bet_model.trainable_variables)
 
         #Compute loss on eval model
         with tf.GradientTape() as eval_tape:
-            eval_data_predictions = []
+            eval_data_inputs = []
             eval_data_outputs = []
             for eval_data in eval_train_data:
-                eval_data_predictions.append(eval_data[0])
+                eval_data_inputs.append(eval_data[0])
                 eval_data_outputs.append(eval_data[1])
 
+            eval_data_inputs = postProcessTrainData(eval_data_inputs)
+            eval_data_outputs = np.array(eval_data_outputs, dtype='float32')
+
+            eval_predictions = thread_eval_model(eval_data_inputs)
             eval_loss = tf.keras.losses.MeanSquaredError()
-            eval_losses = eval_loss(eval_data_outputs, eval_data_predictions)
+            eval_losses = eval_loss(eval_data_outputs, eval_predictions)
 
             eval_gradients = eval_tape.gradient(eval_losses, thread_eval_model.trainable_variables)
 
@@ -188,9 +204,11 @@ def playJudgmentGameThread(core_id, curr_action_weights, curr_bet_weights, curr_
         accum_bet_gradients = accum_bet_gradients + bet_gradients
         accum_eval_gradients = accum_eval_gradients + eval_gradients
 
-        act_training_examples += len(action_data_predictions)
-        bet_training_examples += len(bet_data_predictions)
-        eval_training_examples += len(eval_data_predictions)
+        act_training_examples += len(action_predictions)
+        bet_training_examples += len(bet_predictions)
+        eval_training_examples += len(eval_predictions)
+
+        print(accum_act_gradients)
 
         print(f"Game {game_num+1}/{nn_config.A3C_NUM_GAMES_PER_WORKER} on core {core_id} took {time.time()-start} seconds.", end='\r')
 
