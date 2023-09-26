@@ -234,7 +234,11 @@ def evaluateModelPerformance(curr_action_model, curr_bet_model, curr_eval_model,
 
     if args.track: wandb.log({"eval/chance_better_than_best": chance_better_than_best,\
                               "eval/chance_better_than_base": chance_better_than_base,\
-                              "eval/iterations_without_improving": iterations_without_improving})
+                              "eval/iterations_without_improving": iterations_without_improving,\
+                              "eval/curr1_avg_score":sum(curr1_scores)/len(curr1_scores),\
+                              "eval/curr2_avg_score":sum(curr2_scores)/len(curr2_scores),\
+                              "eval/best_avg_score":sum(best_scores)/len(best_scores),\
+                              "eval/base_avg_score":sum(base_scores)/len(base_scores)})
 
     print(f"Evaluated model performance against baseline in {time.time()-start} seconds.")
 

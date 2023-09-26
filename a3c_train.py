@@ -235,7 +235,7 @@ def trainAgentViaA3C():
     state_action_examples_trained_on = 0
     bet_examples_trained_on = 0
 
-    epsilon_choices = [0.3, 0.4, 0.2]
+    epsilon_choices = [0.3, 0.35, 0.25, 0.2, 0.15, 0.1]
     num_global_updates = 0
 
     iterations_without_improving = 0
