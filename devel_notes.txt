@@ -1,3 +1,160 @@
+1/3/23 Run: no changes to betting, just changes to hand normalization.
+Average Final Scores over 100 games: [118.41, 174.84, 188.18, 180.45]
+
+1/4/23 Run: Normal setup. Expect regular performance (260s and 280?)
+Average Final Scores over 100 games: [182.28, 191.3, 181.27, 183.83]
+
+1/4/23 Run: changes to hand normalization + added batch normalization and dropout.
+
+Played against bots:
+Won 684 - 415 - 327 - 263.
+Observations: Poor at preventing others from scoring zero. This makes sense - the training data that these algorithms are spawned from has no concept of that, so needs other training to do this.
+
+1/9/23: Ran DQNAgents trained for a few iterations against DQNAgents intialzied only from mimicking HumanBet Agents. Results:
+Average Final Scores over 1000 games: [185.41, 204.321, 357.241, 348.866]
+where the final two agents were the trained DQN agents. Shows a shocking level of improvement. Will try to further train on these models and see how far we can go.
+
+1/20/23: run1_20 is a standard run - hoping to train over the weekend and see evaluate the performance of the new models. weird error when DQNAgent tried picking a card - seemed like there were no available cards
+
+1/25/23 Note: run1 folder has some pretty well trained agents - compare against new run.
+python3 dqn_train.py -r run1_25 -a run1/best_act_model -b run1/best_bet_model -e run1/best_eval_model
+
+1/25/23: run1_25. Standard bet experience data got corrupted, so regenerating. This data will be from an agent with a higher epsilon (0.3 instead of 0.1), and with deque of the correct, lower max sizes corresponding to 1000 recent games of data.
+
+Hopefully will be able to train for a long time, generate a new standard bet data set, and then continue training until it has a pasasble agent. Added debugging if I run into the same AttributeError.
+
+1/27/23: Run from Jan 25th failed because I forgot to make the comapreAgents function return something. Howveer, did manage to generate new standard_expert_exp_data file. rerunning, this time without having to generate new initial data and hoping to see a long run before hitting the same error.
+
+IDEA: A3C would allow asynchronous updates
+
+CHANGING state transitions stored to just store final rewards rather than the next state
+
+1/28/23: Run just stopped for no reason (?) Created an agent that seemed to improve, but did not beat agent in run1. Running 1_28 with new format of state action transitions (srs, action, reward) instead of (srs, action, srs_after). Expect to see a smaller dataset in standard_action_data, hopefully slightly quicker training. Again, want to run until we get the same error.
+
+Data generated, but not smaller somehow?
+
+For reference, this iteration of DQN generated 32000 state transitions in 2800 seconds (11.5 state action transitions a second.)
+
+run1_28 appears to be better than run1!
+Average Final Scores over 104 games: [360.8076923076923, 356.5576923076923, 352.0673076923077, 339.03846153846155]
+
+Also replicated error:
+Prob same error as before32000
+Printing info on SubroundSituation:
+Hand size: 1, Trump: Spades
+Card stack (with highest adjusted value 0):
+Publicly played cards:
+[0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+Agents:
+Agent points 0, bet progress 0/0, visibly out of suits [0, 0, 0, 0]
+Agent hand:  	4 of spades	 
+Agent points 0, bet progress 0/0, visibly out of suits [0, 0, 0, 0]
+Agent hand:  	8 of spades	 
+Agent points 0, bet progress 0/1, visibly out of suits [0, 0, 0, 0]
+Agent hand:  	4 of clubs	 
+Agent points 0, bet progress 0/1, visibly out of suits [0, 0, 0, 0]
+Agent hand:  	2 of diamonds	 
+Available cards: [<deck_of_cards.Card object at 0x7f32a5571cd0>]
+Current card <deck_of_cards.Card object at 0x7f32a5571cd0>
+Traceback (most recent call last):
+  File "/home/josh/code/JudgmentBot/DQNAgent.py", line 169, in chooseCard
+    if card == best_card:
+  File "/home/josh/code/JudgmentBot/deck_of_cards.py", line 44, in __eq__
+    return self.rank == other.rank and self.suit == other.suit
+AttributeError: 'NoneType' object has no attribute 'rank'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/josh/code/JudgmentBot/dqn_train.py", line 364, in <module>
+    trainDQNAgent()
+  File "/home/josh/code/JudgmentBot/dqn_train.py", line 234, in trainDQNAgent
+    bet_data, eval_data, state_transitions = jg.playGameAndCollectData(use_in_replay_buffer=True)
+  File "/home/josh/code/JudgmentBot/JudgmentGame.py", line 196, in playGameAndCollectData
+    chosen_card = agent.playCard(srs)
+  File "/home/josh/code/JudgmentBot/JudgmentAgent.py", line 47, in playCard
+    chosen_card = self.chooseCard(srs)
+  File "/home/josh/code/JudgmentBot/DQNAgent.py", line 179, in chooseCard
+    if card == best_card:
+  File "/home/josh/code/JudgmentBot/deck_of_cards.py", line 44, in __eq__
+    return self.rank == other.rank and self.suit == other.suit
+AttributeError: 'NoneType' object has no attribute 'rank'
+
+1/30/23: Rerunning on back of run1_28 model and replay buffer. Added debugging information about best_card and best_act_val, hoping to continue training and then debug when hitting error again.
+
+Came back and computer was just black screened and unresponsive. I suspect that the screen went black, and then trying to save the replay buffer completely broke the program, causing it to freeze on a black screen.
+
+Rerunning with actually different models saved in the old_model variable (lol) and logging to a file as well as the console (although it seems like this removes the ability for the console output to actually happen in real time so...)
+
+If this also reaches an error, then may have to reduce replay buffer size by a lot or switch to A3C architecture.
+
+1/31/23: error with copying models. fixed, and ran into the playCard() error again:
+
+Prob same error as before32000
+Printing info on SubroundSituation:
+Hand size: 1, Trump: Spades
+Card stack (with highest adjusted value 0):
+Publicly played cards:
+[0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+Agents:
+Agent points 0, bet progress 0/0, visibly out of suits [0, 0, 0, 0]
+Agent hand:  	7 of clubs	 
+Agent points 0, bet progress 0/0, visibly out of suits [0, 0, 0, 0]
+Agent hand:  	3 of spades	 
+Agent points 0, bet progress 0/1, visibly out of suits [0, 0, 0, 0]
+Agent hand:  	5 of diamonds	 
+Agent points 0, bet progress 0/1, visibly out of suits [0, 0, 0, 0]
+Agent hand:  	4 of hearts	 
+Available cards: ['7 of clubs']
+Current card 7 of clubs
+Best action value = -inf
+Output of action model for current action state: [[nan]]
+
+Trying to fix.
+
+Average Final Scores over 28 games: [339.60714285714283, 303.92857142857144, 308.2857142857143, 335.25]
+New Agent average score: 321.7678571428571, previous agent average score: 321.7678571428571
+New agent does not improve on old agent, so does not save the model.
+
+??????????????????
+
+2/9/23:
+
+Believe I fixed the playCard() error albeit in a bit of a hacky way. Seems that this was occuring because of gradient explosion, causing the weights in the neural network to become NaN, and accordingly for the value to become NaN. Solved this by saving the old values of the weights, and if the gradients blew up, I just went back to the previous weights and tried again.
+
+Ran algorithm for another 225000 state transitions, but ended up with performance that seems statistically significantly worse: 
+
+Average Final Scores over 1004 games: [323.8406374501992, 336.7988047808765, 305.0249003984064, 319.55677290836655] (second two scores are agent 2/8, first two scores are agent 1/28).
+
+Going forward:
+-Algorithm eventually got killed for memory reasons I believe. The replay buffer is now 650 MB, and I can't even load it without the process getting killed for lack of memory. Perhaps reducign the size of the replay buffer even further could be good - maybe 1000 games in the replay buffer is excessive.
+-Also could investigate using target networks - am I actually using a target network setup? Kind of in that I play a full game with 676 actions before updating the network, but needs more careful thought.
+-Can try to switch to CoLab for GPU neural network acceleration
+-In any case, seems like a good option to switch to a A3C type architecture, where I wouldn't have to store any info in the replay buffer.
+
+Actually can confirm that run 1_28 is indeed better than run_1 though.
+
+Generated 1004 games in 14650.139953374863 seconds.
+Average Final Scores over 1004 games: [362.7250996015936, 358.65338645418325, 330.4203187250996, 327.60557768924303]
+
+Running with smaller (~350 game vs. 1000 game) replay buffer, hopefully a size that the full replay buffer can be loaded.
+Also made the logging more intuitive (performance against a baseline agent over time, rather than against the current best agent.)
+Generating new initial set of training data for the replay buffer, this time with a smaller replay buffer size, and entirely seeded with data from agent 1_28. Calling this store of data "agent_1_28_init_rbuffer_data".
+
+2/10/23:
+Ran for a while, performance jumped around and eventually ended in effectively the same place as where it started, if not slightly worse.
+Generated 1004 games in 15036.499103069305 seconds.
+Average Final Scores over 1004 games: [304.8964143426295, 316.52589641434264, 305.3884462151394, 308.2181274900398]
+
+Got to the point where the action network weights were about to blow up, and just resetting back to the previous point would just lead them to blow up again. Fundamental issue here which needs to be solved.
+
+3/17/23:
+Revisitng this project. Reading this stack overflow page, https://ai.stackexchange.com/questions/34952/is-using-monte-carlo-estimate-of-returns-in-deep-q-learning-possible, which seems to suggest that using experience replay with monte carlo rewards and DQN becomes impractical because the replay buffer becomes too off-policy.
+
+I suppose this makes sense, because if you just store the next states, at least you're using the current Q function to actually evaluate them. If you're just storing eventual rewards, not only did an old policy get you to this state, but an old policy provided the rewards. I think switching to A3C architecture is absolutely essential at this point. The grind begins.
+
 9/23/23
 Back in the swing of things again. Refactored code for a3c and got some runs going.
 
@@ -54,3 +211,9 @@ On another note, I had the realization that if the baseline and best model are i
 Given that they're not, that means the evaluation process is not long enough to remove variance. I think Judgement inherently has an insane
 amount of variance. Therefore, I multiplied the evaluation games by ~1- and made them much more rare. Results seem to be more consistent now,
 but still not identical.
+10/13/23
+Still seems to not be learning at all, and I'm wondering why this is the case. Perhaps another bug hiding in the A3C code somewhere.
+
+Alternatively, now that I have the lab computer which has far more memory, I could go back to DQN and storing before and after action
+states, rather than monte carlo rewards. This could help the issue where the replay buffer becomes too off-policy.
+(But now all this work on creating A3C goes to waste and I have to start managing replay buffer data again :( )
