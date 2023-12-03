@@ -39,3 +39,18 @@ led to changes in the loss function. From the model's perspective, it says "Oh, 
 to this and we can't make any changes! :(".
 
 Will run new training process on lab computer where weights are actually being applied, perhaps with the slightly less stringent acceptance criteria.
+
+9/26/23
+New runs still haven't seemed to improve at all. The interesting thing is that the culprit can't be the lack of multi-agent RL methods - 
+without actually seeing any improvement, the best, baseline, and current models are effectively all the same (minus the gradient updates).
+
+I supposed that could be causing the issue - it trains in an environment with 4 current agents, and then is evaluated in an environment with
+2 current agents and 2 old agents. Fundamentally though, I want the new models to be able to beat the old models. I suppose I could switch to
+identical setups for training and test (and thus take a 50% performance hit.) If things stall for too much longer, I might try that.
+
+(Also, I should really read the multi-agent poker paper.)
+
+On another note, I had the realization that if the baseline and best model are indeed the same, they should be resulting in identical score distributions.
+Given that they're not, that means the evaluation process is not long enough to remove variance. I think Judgement inherently has an insane
+amount of variance. Therefore, I multiplied the evaluation games by ~1- and made them much more rare. Results seem to be more consistent now,
+but still not identical.
