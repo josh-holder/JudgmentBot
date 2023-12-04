@@ -1,6 +1,14 @@
 # JudgmentBot
 Tools to create a machine learning AI capable of playing the card game Judgment.
 
+## Play the bot!
+
+If you want to try your hand at beating the bot, install required packages with `pip install -r requirements.txt`, and run the following command:
+
+`python3 play_game_against_bots.py`
+
+following the instructions in the command line. Best of luck - it might surprise you!
+
 ## Terminology
 
 There is a lot of somewhat subtle terminology used throughout the code base.

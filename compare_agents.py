@@ -83,11 +83,11 @@ def compareAgents(agents_to_compare,games_num,cores=1,optimized=True):
     is more compatible with models of different structures but is slower. 
     """
     start = time.time()
-    action_model_weights = [agent.action_model.get_weights() for agent in agents_to_compare]
-    bet_model_weights = [agent.bet_model.get_weights() for agent in agents_to_compare]
-    eval_model_weights = [agent.eval_model.get_weights() for agent in agents_to_compare]
-
     if optimized: #Optimized but less compatible method of comparison
+        action_model_weights = [agent.action_model.get_weights() for agent in agents_to_compare]
+        bet_model_weights = [agent.bet_model.get_weights() for agent in agents_to_compare]
+        eval_model_weights = [agent.eval_model.get_weights() for agent in agents_to_compare]
+        
         initargs = [action_model_weights, bet_model_weights, eval_model_weights]
         initfcn = compareAgentsPoolInit
     else: 
@@ -117,4 +117,8 @@ if __name__ == "__main__":
               NNAgent(2, bet_model_name='current_best_models/best_bet_model', action_model_name='current_best_models/best_act_model', eval_model_name='current_best_models/best_eval_model'),\
                 NNAgent(3, bet_model_name='current_best_models/best_bet_model', action_model_name='current_best_models/best_act_model', eval_model_name='current_best_models/best_eval_model')]
     
-    compareAgents(agents, games_num=args.games, cores=cpu_count(), optimized=True)
+    agents = [HumanBetAgent(0),HumanBetAgent(1),\
+              NNAgent(2, bet_model_name='current_best_models/best_bet_model', action_model_name='current_best_models/best_act_model', eval_model_name='current_best_models/best_eval_model'),\
+                NNAgent(3, bet_model_name='current_best_models/best_bet_model', action_model_name='current_best_models/best_act_model', eval_model_name='current_best_models/best_eval_model')]
+
+    compareAgents(agents, games_num=args.games, cores=cpu_count(), optimized=False)
