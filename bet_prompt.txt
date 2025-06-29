@@ -1,0 +1,53 @@
+I want you to play the trick-taking game described by the rules below, acting as a card game expert who is highly motivated to win the game. Desired output: exactly one token of the form `{BidNumber}` (examples: `{0}`, `{1}`), with no other characters, spaces, or line breaks.
+
+**Judgment (Kachuful) – 4-player, 52-card trick-taking game**
+
+**Rounds & trump order:** 25 rounds with hand sizes 1, 2, … 13, 12, … 1. Before each round the trump suit advances in the fixed cycle **Spades → Hearts → Clubs → Diamonds → No Trump → repeat**.
+
+**Play of a trick:** Leader plays a card; that card’s suit is the _lead suit_. Players must follow the lead suit if able, otherwise may play any card. Ranking:
+
+• If a trump suit exists: any trump outranks any non-trump, A > K > … > 2 within trump.
+
+• Among non-trumps, only cards of the lead suit can win; within that suit A > K > … > 2.
+
+Winner takes the trick and leads next.
+
+**Bidding:** Before each round, in clockwise order starting left of dealer, each player declares an integer bid b_i​ (0 ≤ b_i​ ≤ hand size). The last bidder is forbidden from betting such that \sum b_i = hand size.
+
+**Scoring (let t_i be tricks actually won, p_i be points scored):**
+
+• Exact-make, b_i>0,  t_i=b_i>0, -> p_i = 10 * b_i
+
+• Under-take, b_i>0,  t_i<b_i>0 -> p_i = −10 * (b_i - t_i)
+
+• Over-take, b_i>0,  t_i>b_i>0, -> p_i = 10 * b_i + (t_i−b_i​); every time a player accumulates +5 _over-take_ points they immediately score −50 and the accumulator resets. The counter carries across rounds until the –50 penalty triggers, then it resets to zero. i.e. b_i=3, t_i=5 -> p_i=32
+
+• Nil-make, b_i=0,  t_i=0 -> p_i = 10 * (hand size)
+
+• Nil broken, b_i=0,  t_i>0 -> p_i  = − 10 * t_i​
+
+**Game end:** After 25 rounds, highest total wins.
+
+I will provide you a scenario of the following format:
+
+'''
+Round: 3
+Hand size: 3
+Trump suit: Clubs
+First bidder this round: 3
+Seating order: 1 (You), 2, 3, 4
+
+Player 4 (Lead): bid 1, score 110
+
+You: bid TBD, legal bids {0, 1}, score 160, hand {2C, AS}
+
+Player 2: bid TBD, score 20
+
+Player 3: bid TBD, score -18
+'''
+
+Format of cards in your hand is RankSuit where A,K,Q,J,T,9…2 and S/H/C/D.
+Bid such that you will be in the best position to have the most points at the end of 25 rounds.
+"Legal bids" is the subset of bids that are legal, provided as an aid. 
+If your answer does not match the regex /^\{[0-9]\}$/ exactly, you make a random bid. 
+Game state in which bid is desired is as follows:

@@ -203,4 +203,7 @@ class HumanAgent(JudgmentAgent):
         
         card_to_play = self.hand[card_index]
 
+        # Strip the prefix added to make the UI good.
+        card_to_play.name = card_to_play.name.split(": ")[-1]
+
         return card_to_play

@@ -39,17 +39,18 @@ class NNAgent(SimpleAgent):
             self.eval_model = None
 
     def loadModels(self, bet_model_name, eval_model_name, action_model_name):
+        # NOTE: will need to reenable compile() if we want to continue training these models.
         bet_model_path = os.path.join(os.getcwd(),bet_model_name)
         self.bet_model = keras.models.load_model(bet_model_path, compile=False)
-        self.bet_model.compile()
+        # self.bet_model.compile()
 
         eval_model_path = os.path.join(os.getcwd(),eval_model_name)
         self.eval_model = keras.models.load_model(eval_model_path, compile=False)
-        self.eval_model.compile()
+        # self.eval_model.compile()
 
         action_model_path = os.path.join(os.getcwd(),action_model_name)
         self.action_model = keras.models.load_model(action_model_path, compile=False)
-        self.action_model.compile()
+        # self.action_model.compile()
 
     def evalSubroundWinChance(self,srs,card):
         """

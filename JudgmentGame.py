@@ -36,6 +36,8 @@ class JudgmentGame(object):
         sorted by agent ID.
         """
         for round, hand_size in enumerate(self.hand_sizes):
+            round_num = round + 1
+
             self.resetAgents()
             trump = round % len(SUIT_ORDER)
 
@@ -51,7 +53,7 @@ class JudgmentGame(object):
             
             #initiate bets
             bets = []
-            bs = BetSituation(hand_size,bets,trump,self.agents)
+            bs = BetSituation(round_num,hand_size,bets,trump,self.agents)
             for agent in self.agents:
                 bets.append(agent.makeBet(bs))
                 bs.other_bets = bets
@@ -60,7 +62,7 @@ class JudgmentGame(object):
 
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,turn_order,np.zeros(52,dtype='int8'))
+            srs = SubroundSituation(round_num,hand_size,[],trump,0,turn_order,np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
@@ -145,6 +147,8 @@ class JudgmentGame(object):
         #or (srs_input, chosen_action, point diff. at end of round) in the case of replay buffer data
 
         for round, hand_size in enumerate(self.hand_sizes):
+            round_num = round + 1
+
             bet_state_input_data = {} #keys: agent ids. values: bet states, which will later be paired with an average score difference
             eval_state_input_data = {}
 
@@ -171,7 +175,7 @@ class JudgmentGame(object):
             
             #~~~~~~~~~~~~~INITIATE BETS, COLLECT BET STATE DATA~~~~~~~~~~~~~~~~
             bets = []
-            bs = BetSituation(hand_size,bets,trump,self.agents)
+            bs = BetSituation(round_num,hand_size,bets,trump,self.agents)
             for agent in self.agents:                
                 #make bet
                 agent_bet = agent.makeBet(bs)
@@ -184,7 +188,7 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,copyNNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
+            srs = SubroundSituation(round_num,hand_size,[],trump,0,copyNNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]
@@ -291,6 +295,8 @@ class JudgmentGame(object):
         #or (srs_input, chosen_action, point diff. at end of round) in the case of replay buffer data
 
         for round, hand_size in enumerate(self.hand_sizes):
+            round_num = round + 1
+
             bet_state_input_data = {} #keys: agent ids. values: bet states, which will later be paired with an average score difference
             eval_state_input_data = {}
             action_state_input_data = dd(list)
@@ -309,7 +315,7 @@ class JudgmentGame(object):
             
             #~~~~~~~~~~~~~INITIATE BETS, COLLECT BET STATE DATA~~~~~~~~~~~~~~~~
             bets = []
-            bs = BetSituation(hand_size,bets,trump,self.agents)
+            bs = BetSituation(round_num,hand_size,bets,trump,self.agents)
             for agent in self.agents:                
                 #make bet
                 agent_bet, agent_bet_val = agent.makeBetAndReturnNetworkEval(bs)
@@ -322,7 +328,7 @@ class JudgmentGame(object):
             #~~~~~~~~~~~~~~PLAY CARDS FROM HAND, COLLECT EVAL AND ACTION DATA~~~~~~~~~~~~~~~
             starting_agent = 0
             turn_order = self.agents
-            srs = SubroundSituation(hand_size,[],trump,0,copyNNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
+            srs = SubroundSituation(round_num,hand_size,[],trump,0,copyNNAgentsWithoutModels(turn_order),np.zeros(52,dtype='int8'))
             for subround in range(hand_size):
                 #set new turn order based on who won last round
                 turn_order = turn_order[starting_agent:]+turn_order[:starting_agent]

@@ -14,6 +14,8 @@ class JudgmentAgent(object):
         self.id = id
         #structure which tracks whether other players know that this agent is out of a suit
         self.visibly_out_of_suit = [0,0,0,0] 
+        #list which tracks which cards the agent has played in this round
+        self.previously_played_cards = []
 
     def drawCard(self,card):
         self.hand.append(card)
@@ -47,6 +49,8 @@ class JudgmentAgent(object):
         chosen_card = self.chooseCard(srs)
 
         self.hand.remove(chosen_card)
+        # Add the played card to the previously_played_cards list
+        self.previously_played_cards.append(chosen_card)
         return chosen_card
     
     def makeBet(self,bs):
@@ -138,6 +142,7 @@ class JudgmentAgent(object):
         self.subrounds_won = 0
         self.bet = -1
         self.visibly_out_of_suit = [0,0,0,0]
+        self.previously_played_cards = []
 
     def printHand(self):
         """

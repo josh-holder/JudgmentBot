@@ -5,7 +5,6 @@ from tensorflow import keras
 import tensorflow as tf
 from bet_nn_train import prepareData
 import numpy as np
-import time
 
 class HumanBetAgent(SimpleAgent):
     def __init__(self,id,bet_model_name="human_bet_model",eval_model_name="eval_expert_train_model",use_eval_model=False):

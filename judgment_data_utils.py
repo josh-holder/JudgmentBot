@@ -2,7 +2,8 @@ import numpy as np
 from nn_config import POINT_NORMALIZATION
 
 class BetSituation(object):
-    def __init__(self,hand_size,other_bets,trump,agents):
+    def __init__(self,round_num,hand_size,other_bets,trump,agents):
+        self.round_num = round_num
         self.hand_size = hand_size
         self.other_bets = other_bets
         self.trump = trump
@@ -14,7 +15,8 @@ class SubroundSituation(object):
     fully define a subround sitation. Using this info combined with info about it's own hand,
     any agent can determine what card to play in a given situation.
     """
-    def __init__(self,hand_size,card_stack,trump,highest_adjusted_val,agents,publicly_played_cards):
+    def __init__(self,round_num,hand_size,card_stack,trump,highest_adjusted_val,agents,publicly_played_cards):
+        self.round_num = round_num
         self.hand_size = hand_size #Used as input to NN. Useful to determine how bad a 0 bet would be for you, for example.
         self.card_stack = card_stack #Used to determine forced suit, for example
         self.trump = trump
